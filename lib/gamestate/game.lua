@@ -38,7 +38,7 @@ local Cell = {
     stand = 1,
     press = 2,
     flag = 3,
-    bomb = 100,
+    bomb = -100,
 }
 
 --============================================================================
@@ -52,6 +52,20 @@ local shuffle = function(t)
         local j = rand(i)
         t[i], t[j] = t[j], t[i]
     end
+end
+
+local function increment(x, y)
+    if x < 0 or y < 0 then return false end
+    if x > data.width - 1 or y > data.height - 1 then return false end
+
+    local index = y * data.width + x
+    if index >= data.width * data.height then return false end
+
+    local cell = data.grid[index]
+    if cell == Cell.bomb then return false end
+    data.grid[index] = data.grid[index] or 0
+    data.grid[index] = data.grid[index] + 1
+    return true
 end
 --============================================================================
 
@@ -91,8 +105,18 @@ local function init(args)
     for y = 0, data.height - 1 do
         for x = 0, data.width - 1 do
             local index = (y * data.width) + x
+            data.grid[index] = data.grid[index] or 0
+
             if data.mines_pos[index] then
                 data.grid[index] = Cell.bomb
+                increment(x - 1, y - 1)
+                increment(x, y - 1)
+                increment(x + 1, y - 1)
+                increment(x - 1, y)
+                increment(x + 1, y)
+                increment(x - 1, y + 1)
+                increment(x, y + 1)
+                increment(x + 1, y + 1)
             end
         end
     end
@@ -159,13 +183,17 @@ local layer_main = {
         for y = 0, data.height - 1 do
             for x = 0, data.width - 1 do
                 local index = (y * data.width) + x
+                local cell = data.grid[index]
 
-                if data.grid[index] == Cell.bomb then
+                if cell == Cell.bomb then
                     love.graphics.setColor(0, 0, 0)
+                    love.graphics.circle("fill", px + 8, py + 8, 4)
                 else
                     love.graphics.setColor(1, 0, 0)
+                    if cell and cell ~= 0 then
+                        font:print(tostring(cell), TILE * x + 4, TILE * y + 4)
+                    end
                 end
-                love.graphics.circle("fill", px + 8, py + 8, 4)
                 px = px + TILE
             end
             py = py + TILE
@@ -173,8 +201,8 @@ local layer_main = {
         end
 
         py = 10
-        for i = 1, 10 do
-            font:print(tostring(data.t[i]), 132, py)
+        for i = 1, data.mines do
+            font:print(tostring(data.t[i]), 150, py)
             py = py + 16
         end
     end
