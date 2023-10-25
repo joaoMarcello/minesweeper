@@ -17,6 +17,7 @@ function love.load()
     _G.CANVAS_FILTER = "linear"
     _G.TARGET = "pc"
 
+    JM.Font.current:set_font_size(8)
     -- local state = require(JM.SplashScreenPath)
     local state = require("lib.gamestate.game")
 
