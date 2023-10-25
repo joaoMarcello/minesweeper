@@ -1,12 +1,14 @@
 local path = ...
 local JM = _G.JM_Package
 local TileMap = JM.TileMap
+local Utils = JM.Utils
 
 do
     _G.SUBPIXEL = _G.SUBPIXEL or 3
     _G.CANVAS_FILTER = _G.CANVAS_FILTER or 'linear'
     _G.TILE = _G.TILE or 16
 end
+
 
 ---@class Gamestate.Game : JM.Scene
 local State = JM.Scene:new {
@@ -35,16 +37,35 @@ local Mode = {
 }
 
 local Cell = {
-    stand = 1,
-    press = 2,
-    flag = 3,
-    bomb = -100,
+    bomb = -1,
+    flag = -2,
+    press = -3,
+    stand = -4,
+    cover = -5,
+    uncover = -6,
+    explosion = -7,
 }
 
---============================================================================
-local data = {}
+local tile_to_state = {
+    [1] = Cell.uncover,
+    [2] = Cell.cover,
+    [3] = Cell.press,
+    [4] = Cell.flag,
+    [5] = Cell.bomb,
+    [6] = Cell.explosion,
+}
 
-local rand = math.random
+local tile = _G.TILE
+
+--============================================================================
+---@class Gamestate.Game.Data
+local data = {
+    get_mouse_position = function(cam)
+        return State:get_mouse_position(cam)
+    end
+}
+
+local rand, floor = math.random, math.floor
 
 local shuffle = function(t)
     local N = #t
@@ -67,6 +88,10 @@ local function increment(x, y)
     data.grid[index] = data.grid[index] + 1
     return true
 end
+
+local generic = function()
+
+end
 --============================================================================
 
 function State:__get_data__()
@@ -82,10 +107,14 @@ local function finish()
 end
 
 local function init(args)
+    data.tilemap = TileMap:new(generic, "/data/img/tilemap.png", 16)
+
     data.height = 8
     data.width = 8
-    data.mines = 24
+    data.mines = 10
     data.grid = {}
+    data.state = {}
+
     local t = {}
     local N = data.height * data.width
     for i = 0, N - 1 do
@@ -93,18 +122,21 @@ local function init(args)
     end
     shuffle(t)
 
-    data.mines_pos = {}
+    local mines_pos = {}
     for i = 0, data.mines - 1 do
-        data.mines_pos[t[i + 1]] = true
+        mines_pos[t[i + 1]] = true
     end
-    -- data.mines_pos[0] = true
 
     for y = 0, data.height - 1 do
         for x = 0, data.width - 1 do
             local index = (y * data.width) + x
             data.grid[index] = data.grid[index] or 0
 
-            if data.mines_pos[index] then
+
+            data.state[index] = Cell.cover
+            data.tilemap:insert_tile(tile * x, tile * y, 2)
+
+            if mines_pos[index] then
                 data.grid[index] = Cell.bomb
                 increment(x - 1, y - 1)
                 increment(x, y - 1)
@@ -114,20 +146,17 @@ local function init(args)
                 increment(x - 1, y + 1)
                 increment(x, y + 1)
                 increment(x + 1, y + 1)
+                -- data.tilemap:insert_tile(tile * x, tile * y, 5)
             end
         end
     end
 
-    -- local x, y = 0, 0
-    -- data.grid[0] = Cell.bomb
-    -- increment(x - 1, y - 1)
-    -- increment(x, y - 1)
-    -- increment(x + 1, y - 1)
-    -- increment(x - 1, y)
-    -- increment(x + 1, y)
-    -- increment(x - 1, y + 1)
-    -- increment(x, y + 1)
-    -- increment(x + 1, y + 1)
+    local mx, my = data.get_mouse_position()
+    data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
+    data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
+
+    data.last_cell_x = data.cell_x
+    data.last_cell_y = data.cell_y
 end
 
 local function textinput(t)
@@ -150,15 +179,48 @@ local function keyreleased(key)
 end
 
 local function mousepressed(x, y, button, istouch, presses)
+    if istouch then return end
 
+    if button == 1 then
+        data.tilemap:insert_tile(data.cell_x * tile, data.cell_y * tile, 3)
+    end
 end
 
 local function mousereleased(x, y, button, istouch, presses)
+    if istouch then return end
 
+    if button == 1 then
+        data.tilemap:insert_tile(data.cell_x * tile, data.cell_y * tile, 4)
+        data.tilemap:reset_spritebatch()
+    end
 end
 
 local function mousemoved(x, y, dx, dy, istouch)
+    local reset_spritebatch = false
 
+    local mx, my = data.get_mouse_position()
+    data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
+    data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
+
+    if data.cell_x ~= data.last_cell_x or data.cell_y ~= data.last_cell_y then
+        local px = data.last_cell_x * tile
+        local py = data.last_cell_y * tile
+
+        local id = data.tilemap:get_id(px, py)
+
+        if id == 3 then
+            data.tilemap:insert_tile(px, py, 2)
+            data.tilemap:insert_tile(data.cell_x * tile, data.cell_y * tile, 3)
+            reset_spritebatch = true
+        end
+    end
+
+    data.last_cell_x = data.cell_x
+    data.last_cell_y = data.cell_y
+
+    if reset_spritebatch then
+        data.tilemap:reset_spritebatch()
+    end
 end
 
 local function touchpressed(id, x, y, dx, dy, pressure)
@@ -186,8 +248,11 @@ local layer_main = {
     draw = function(self, cam)
         local font = JM.Font.current
 
-        local px   = 0
-        local py   = 0
+        data.tilemap:draw(cam)
+
+
+        local px = 0
+        local py = 0
         for y = 0, data.height - 1 do
             for x = 0, data.width - 1 do
                 local index = (y * data.width) + x
@@ -198,13 +263,13 @@ local layer_main = {
                     love.graphics.circle("fill", px + 8, py + 8, 4)
                 else
                     love.graphics.setColor(1, 0, 0)
-                    if cell and cell ~= 0 then
-                        font:print(tostring(cell), TILE * x + 4, TILE * y + 4)
+                    if cell and cell > 0 then
+                        font:print(tostring(cell), tile * x + 4, tile * y + 4)
                     end
                 end
-                px = px + TILE
+                px = px + tile
             end
-            py = py + TILE
+            py = py + tile
             px = 0
         end
 
@@ -213,6 +278,9 @@ local layer_main = {
         --     font:print(tostring(data.t[i]), 150, py)
         --     py = py + 16
         -- end
+
+        font:print(tostring(data.cell_x), 150, 16)
+        font:print(tostring(data.cell_y), 150, 16 + 16)
     end
 }
 
