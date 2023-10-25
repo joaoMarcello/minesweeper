@@ -82,25 +82,22 @@ local function finish()
 end
 
 local function init(args)
-    love.mouse.setVisible(true)
-
     data.height = 8
     data.width = 8
-    data.mines = 10
+    data.mines = 24
     data.grid = {}
     local t = {}
     local N = data.height * data.width
     for i = 0, N - 1 do
-        t[i] = i
+        t[i + 1] = i
     end
     shuffle(t)
 
-    data.t = t
-
     data.mines_pos = {}
-    for i = 1, data.mines do
-        data.mines_pos[t[i]] = true
+    for i = 0, data.mines - 1 do
+        data.mines_pos[t[i + 1]] = true
     end
+    -- data.mines_pos[0] = true
 
     for y = 0, data.height - 1 do
         for x = 0, data.width - 1 do
@@ -120,6 +117,17 @@ local function init(args)
             end
         end
     end
+
+    -- local x, y = 0, 0
+    -- data.grid[0] = Cell.bomb
+    -- increment(x - 1, y - 1)
+    -- increment(x, y - 1)
+    -- increment(x + 1, y - 1)
+    -- increment(x - 1, y)
+    -- increment(x + 1, y)
+    -- increment(x - 1, y + 1)
+    -- increment(x, y + 1)
+    -- increment(x + 1, y + 1)
 end
 
 local function textinput(t)
@@ -200,11 +208,11 @@ local layer_main = {
             px = 0
         end
 
-        py = 10
-        for i = 1, data.mines do
-            font:print(tostring(data.t[i]), 150, py)
-            py = py + 16
-        end
+        -- py = 10
+        -- for i = 1, data.mines do
+        --     font:print(tostring(data.t[i]), 150, py)
+        --     py = py + 16
+        -- end
     end
 }
 
