@@ -8,7 +8,7 @@ function love.load()
     lgx.setBackgroundColor(0, 0, 0, 1)
     lgx.setDefaultFilter("nearest", "nearest")
     lgx.setLineStyle("rough")
-    love.mouse.setVisible(false)
+    love.mouse.setVisible(true)
 
     _G.SCREEN_WIDTH = JM.Utils:round(398)
     _G.SCREEN_HEIGHT = JM.Utils:round(224)
