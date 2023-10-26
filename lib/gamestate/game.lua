@@ -46,6 +46,7 @@ local Cell = {
     explosion = -7,
     suspicious = -8,
     wrong = -9,
+    susp_pressed = -10,
 }
 
 local tile_to_state = {
@@ -65,6 +66,7 @@ local tile_to_state = {
     [14] = Cell.uncover,
     [15] = Cell.suspicious,
     [16] = Cell.wrong,
+    [17] = Cell.susp_pressed,
 }
 
 local state_to_tile = {
@@ -76,6 +78,7 @@ local state_to_tile = {
     [Cell.explosion] = 6,
     [Cell.suspicious] = 15,
     [Cell.wrong] = 16,
+    [Cell.susp_pressed] = 17,
 }
 
 local tile = _G.TILE
@@ -89,9 +92,10 @@ local data = {
 }
 
 local rand, floor = math.random, math.floor
+local mouse = love.mouse
 
-local shuffle = function(t)
-    local N = #t
+local shuffle = function(t, n)
+    local N = n or #t
     for i = N, 2, -1 do
         local j = rand(i)
         t[i], t[j] = t[j], t[i]
@@ -141,7 +145,7 @@ data.build_board = function(self, exception)
         t[i + 1] = i
     end
     -- math.randomseed(3)
-    shuffle(t)
+    shuffle(t, N)
 
     local mines_pos = {}
     local i = 0
@@ -198,6 +202,7 @@ local function init(args)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
     data.time_click = 0.0
+    data.time_release = 0.0
     data.pressing = false
 
     -- filling tilemap with cover cells
@@ -284,7 +289,6 @@ data.uncover_cells = function(self, cellx, celly)
         return false
     end
 
-
     if value == 0 then
         data.state[index] = Cell.uncover
 
@@ -301,12 +305,57 @@ data.uncover_cells = function(self, cellx, celly)
         self:uncover_cells(cellx, celly + 1)
         self:uncover_cells(cellx + 1, celly + 1)
         ---
-    elseif value > 0 then
+    elseif value > 0 and state ~= Cell.flag then
         data.state[index] = Cell.uncover
         data.tilemap:insert_tile(px, py, 6 + value)
     end
 
     return true
+end
+
+---@param self Gamestate.Game.Data
+data.press_cell = function(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+
+    local px = cellx * tile
+    local py = celly * tile
+    local id = self.tilemap:get_id(px, py)
+    local state = tile_to_state[id]
+
+    if state == Cell.cover then
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
+    elseif state == Cell.suspicious then
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.susp_pressed])
+    else
+        return false
+    end
+    return true
+end
+
+---@param self Gamestate.Game.Data
+data.unpress_cell = function(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+
+    local px = cellx * tile
+    local py = celly * tile
+    local id = self.tilemap:get_id(px, py)
+    local state = tile_to_state[id]
+
+    if state == Cell.press then
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+    elseif state == Cell.susp_pressed then
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+    else
+        return false
+    end
+    return true
+end
+
+---@param self Gamestate.Game.Data
+data.show_tip = function(self)
+
 end
 
 local function mousepressed(x, y, button, istouch, presses)
@@ -316,17 +365,27 @@ local function mousepressed(x, y, button, istouch, presses)
 
     data.pressing = true
 
-    if (button == 1 and love.mouse.isDown(2))
-        or (button == 2 and love.mouse.isDown(1))
+    if (button == 1 and mouse.isDown(2))
+        or (button == 2 and mouse.isDown(1))
     then
+        data.chore = true
         ---
     elseif button == 1 or button == 2 then
-        local px = data.cell_x * tile
-        local py = data.cell_y * tile
-        local id = data.tilemap:get_id(px, py)
+        -- local px = data.cell_x * tile
+        -- local py = data.cell_y * tile
+        -- local id = data.tilemap:get_id(px, py)
+        -- local state = tile_to_state[id]
 
-        if tile_to_state[id] == Cell.cover then
-            data.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
+        -- if state == Cell.cover then
+        --     data.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
+        --     data.tilemap:reset_spritebatch()
+        --     ---
+        -- elseif state == Cell.suspicious then
+        --     data.tilemap:insert_tile(px, py, state_to_tile[Cell.susp_pressed])
+        --     data.tilemap:reset_spritebatch()
+        -- end
+
+        if data:press_cell(data.cell_x, data.cell_y) then
             data.tilemap:reset_spritebatch()
         end
     end
@@ -343,7 +402,10 @@ local function mousereleased(x, y, button, istouch, presses)
     local id = data.tilemap:get_id(px, py)
     local state = tile_to_state[id]
     local index = data.cell_y * data.width + data.cell_x
+    local reset_spritebatch = false
     local allow_click = data.time_click < 0.5
+        and data.time_release <= 0.0
+        and data.pressing
 
     if data.first_click and is_inside_board and button == 1
         and state ~= Cell.flag
@@ -351,24 +413,32 @@ local function mousereleased(x, y, button, istouch, presses)
     then
         data.first_click = false
         data:build_board(data.cell_y * data.width + data.cell_x)
+        reset_spritebatch = true
     end
 
     if is_inside_board and state ~= Cell.uncover and allow_click then
         if button == 2 then
-            if state == Cell.flag then
-                data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
-                data.state[index] = Cell.cover
-                ---
-            elseif state == Cell.suspicious then
-                data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                data.state[index] = Cell.cover
-                ---
-            elseif state == Cell.press or state == Cell.cover then
-                data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
-                ---
+            if data.chore then
+
+            else
+                if state == Cell.flag then
+                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+                    data.state[index] = Cell.cover
+                    ---
+                elseif state == Cell.suspicious then
+                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+                    data.state[index] = Cell.cover
+                    ---
+                elseif state == Cell.press or state == Cell.cover then
+                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+                    ---
+                elseif state == Cell.susp_pressed then
+                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+                    ---
+                end
+                reset_spritebatch = true
             end
 
-            data.tilemap:reset_spritebatch()
             ---
         elseif button == 1 then
             if data.grid[index] == Cell.bomb then
@@ -382,25 +452,39 @@ local function mousereleased(x, y, button, istouch, presses)
                 data:uncover_cells(data.cell_x, data.cell_y)
             end
 
-            data.tilemap:reset_spritebatch()
+            reset_spritebatch = true
         end
+
+        data.time_release = 0.1
+
+
         --
     else
         if state == Cell.press then
             data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-            data.tilemap:reset_spritebatch()
+            reset_spritebatch = true
+        elseif state == Cell.susp_pressed then
+            data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+            reset_spritebatch = true
+        end
+
+        if data.chore then
+            data.chore = false
         end
     end
 
-    if data.pressing then
+    if data.pressing and button <= 2 then
         data.pressing = false
         data.time_click = 0.0
+    end
+
+    if reset_spritebatch then
+        data.tilemap:reset_spritebatch()
     end
 end
 
 local function mousemoved(x, y, dx, dy, istouch)
     if istouch then return end
-    -- if not position_is_inside_board(x, y) then return end
 
     local reset_spritebatch = false
 
@@ -422,19 +506,27 @@ local function mousemoved(x, y, dx, dy, istouch)
             data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
             reset_spritebatch = true
         end
+
+        if data.chore then
+            -- data.chore = false
+        end
         ---
-    else
+    elseif data.pressing then
         local px = data.last_cell_x * tile
         local py = data.last_cell_y * tile
 
         local id = data.tilemap:get_id(px, py)
         local last_state = tile_to_state[id]
 
-        if (last_state == Cell.press)
-            or (love.mouse.isDown(1) or love.mouse.isDown(2))
+        if (last_state == Cell.press or last_state == Cell.susp_pressed)
+            or (mouse.isDown(1) or mouse.isDown(2))
         then
             if last_state == Cell.press then
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+                reset_spritebatch = true
+                ---
+            elseif last_state == Cell.susp_pressed then
+                data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
                 reset_spritebatch = true
             end
 
@@ -443,10 +535,14 @@ local function mousemoved(x, y, dx, dy, istouch)
 
             if cur_state ~= Cell.flag
                 and cur_state ~= Cell.uncover
-                and cur_state ~= Cell.suspicious
+                -- and cur_state ~= Cell.suspicious
                 and cur_state ~= Cell.press
             then
-                data.tilemap:insert_tile(data.cell_x * tile, data.cell_y * tile, state_to_tile[Cell.press])
+                local state = cur_state == Cell.suspicious
+                    and state_to_tile[Cell.susp_pressed]
+                    or state_to_tile[Cell.press]
+
+                data.tilemap:insert_tile(data.cell_x * tile, data.cell_y * tile, state)
                 reset_spritebatch = true
             end
         end
@@ -480,6 +576,13 @@ end
 local function update(dt)
     if data.pressing then
         data.time_click = data.time_click + dt
+    end
+
+    if data.time_release > 0.0
+        and not mouse.isDown(1)
+        and not mouse.isDown(2)
+    then
+        data.time_release = Utils:clamp(data.time_release - dt, 0.0, 100.0)
     end
 end
 
@@ -528,6 +631,7 @@ local layer_main = {
         font:print(data.pressing and "Pressing" or "not press", 150, 150)
         font:print(tostring(data.time_click), 150, 150 + 16)
 
+        font:print(data.chore and "Chore" or "not chore", 20, 150)
         local mx, my = data.get_mouse_position()
         font:print(position_is_inside_board(mx, my) and "True" or "False", 150, 66)
     end
