@@ -323,10 +323,12 @@ data.press_cell = function(self, cellx, celly)
     local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
 
-    if state == Cell.cover then
+    if state == Cell.cover and state ~= Cell.press then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
-    elseif state == Cell.suspicious then
+        ---
+    elseif state == Cell.suspicious and state ~= Cell.susp_pressed then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.susp_pressed])
+        ---
     else
         return false
     end
@@ -343,10 +345,12 @@ data.unpress_cell = function(self, cellx, celly)
     local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
 
-    if state == Cell.press then
+    if state == Cell.press and state ~= Cell.cover then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-    elseif state == Cell.susp_pressed then
+        ---
+    elseif state == Cell.susp_pressed and state ~= Cell.suspicious then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+        ---
     else
         return false
     end
@@ -354,8 +358,41 @@ data.unpress_cell = function(self, cellx, celly)
 end
 
 ---@param self Gamestate.Game.Data
-data.show_tip = function(self)
+data.press_neighbor = function(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
 
+    local r = self:press_cell(cellx, celly)
+
+    r = self:press_cell(cellx - 1, celly - 1) or r
+    r = self:press_cell(cellx, celly - 1) or r
+    r = self:press_cell(cellx + 1, celly - 1) or r
+    r = self:press_cell(cellx - 1, celly) or r
+    r = self:press_cell(cellx + 1, celly) or r
+    r = self:press_cell(cellx - 1, celly + 1) or r
+    r = self:press_cell(cellx, celly + 1) or r
+    r = self:press_cell(cellx + 1, celly + 1) or r
+
+    return r
+end
+
+---@param self Gamestate.Game.Data
+data.unpress_neighbor = function(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+
+    local r = self:unpress_cell(cellx, celly)
+
+    r = self:unpress_cell(cellx - 1, celly - 1) or r
+    r = self:unpress_cell(cellx, celly - 1) or r
+    r = self:unpress_cell(cellx + 1, celly - 1) or r
+    r = self:unpress_cell(cellx - 1, celly) or r
+    r = self:unpress_cell(cellx + 1, celly) or r
+    r = self:unpress_cell(cellx - 1, celly + 1) or r
+    r = self:unpress_cell(cellx, celly + 1) or r
+    r = self:unpress_cell(cellx + 1, celly + 1) or r
+
+    return r
 end
 
 local function mousepressed(x, y, button, istouch, presses)
@@ -369,22 +406,9 @@ local function mousepressed(x, y, button, istouch, presses)
         or (button == 2 and mouse.isDown(1))
     then
         data.chore = true
+        data:press_neighbor(data.cell_x, data.cell_y)
         ---
     elseif button == 1 or button == 2 then
-        -- local px = data.cell_x * tile
-        -- local py = data.cell_y * tile
-        -- local id = data.tilemap:get_id(px, py)
-        -- local state = tile_to_state[id]
-
-        -- if state == Cell.cover then
-        --     data.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
-        --     data.tilemap:reset_spritebatch()
-        --     ---
-        -- elseif state == Cell.suspicious then
-        --     data.tilemap:insert_tile(px, py, state_to_tile[Cell.susp_pressed])
-        --     data.tilemap:reset_spritebatch()
-        -- end
-
         if data:press_cell(data.cell_x, data.cell_y) then
             data.tilemap:reset_spritebatch()
         end
@@ -416,28 +440,28 @@ local function mousereleased(x, y, button, istouch, presses)
         reset_spritebatch = true
     end
 
-    if is_inside_board and state ~= Cell.uncover and allow_click then
+    if data.chore then
+        data:unpress_neighbor(data.cell_x, data.cell_y)
+        data.chore = false
+        ---
+    elseif is_inside_board and state ~= Cell.uncover and allow_click then
         if button == 2 then
-            if data.chore then
-
-            else
-                if state == Cell.flag then
-                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
-                    data.state[index] = Cell.cover
-                    ---
-                elseif state == Cell.suspicious then
-                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                    data.state[index] = Cell.cover
-                    ---
-                elseif state == Cell.press or state == Cell.cover then
-                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
-                    ---
-                elseif state == Cell.susp_pressed then
-                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                    ---
-                end
-                reset_spritebatch = true
+            if state == Cell.flag then
+                data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+                data.state[index] = Cell.cover
+                ---
+            elseif state == Cell.suspicious then
+                data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+                data.state[index] = Cell.cover
+                ---
+            elseif state == Cell.press or state == Cell.cover then
+                data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+                ---
+            elseif state == Cell.susp_pressed then
+                data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+                ---
             end
+            reset_spritebatch = true
 
             ---
         elseif button == 1 then
@@ -455,22 +479,17 @@ local function mousereleased(x, y, button, istouch, presses)
             reset_spritebatch = true
         end
 
-        data.time_release = 0.1
-
+        data.time_release = 0.06
 
         --
     else
-        if state == Cell.press then
-            data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-            reset_spritebatch = true
-        elseif state == Cell.susp_pressed then
-            data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
-            reset_spritebatch = true
-        end
+        ---
+        reset_spritebatch = data:unpress_cell(data.cell_x, data.cell_y)
+        reset_spritebatch = data:unpress_cell(data.last_cell_x, data.last_cell_y) or reset_spritebatch
 
-        if data.chore then
-            data.chore = false
-        end
+        -- if data.chore then
+        --     data.chore = false
+        -- end
     end
 
     if data.pressing and button <= 2 then
@@ -496,16 +515,17 @@ local function mousemoved(x, y, dx, dy, istouch)
 
     data.last_state = tile_to_state[data.tilemap:get_id(data.last_cell_x * tile, data.last_cell_y * tile)]
 
-    if not is_inside_board then
-        local px = data.last_cell_x * tile
-        local py = data.last_cell_y * tile
-        local id = data.tilemap:get_id(px, py)
-        local state = tile_to_state[id]
-
-        if state == Cell.press then
-            data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+    if data.chore then
+        -- if data.cell_x ~= data.last_cell_x
+        --     and data.cell_y ~= data.last_cell_y
+        -- then
+        do
+            data:unpress_neighbor(data.last_cell_x, data.last_cell_y)
+            data:press_neighbor(data.cell_x, data.cell_y)
             reset_spritebatch = true
         end
+    elseif not is_inside_board then
+        reset_spritebatch = data:unpress_cell(data.last_cell_x, data.last_cell_y) or reset_spritebatch
 
         if data.chore then
             -- data.chore = false
@@ -521,29 +541,10 @@ local function mousemoved(x, y, dx, dy, istouch)
         if (last_state == Cell.press or last_state == Cell.susp_pressed)
             or (mouse.isDown(1) or mouse.isDown(2))
         then
-            if last_state == Cell.press then
-                data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                reset_spritebatch = true
-                ---
-            elseif last_state == Cell.susp_pressed then
-                data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
-                reset_spritebatch = true
-            end
+            reset_spritebatch = data:unpress_cell(data.last_cell_x, data.last_cell_y) or reset_spritebatch
 
-            local cur_id = data.tilemap:get_id(data.cell_x * tile, data.cell_y * tile)
-            local cur_state = tile_to_state[cur_id]
-
-            if cur_state ~= Cell.flag
-                and cur_state ~= Cell.uncover
-                -- and cur_state ~= Cell.suspicious
-                and cur_state ~= Cell.press
-            then
-                local state = cur_state == Cell.suspicious
-                    and state_to_tile[Cell.susp_pressed]
-                    or state_to_tile[Cell.press]
-
-                data.tilemap:insert_tile(data.cell_x * tile, data.cell_y * tile, state)
-                reset_spritebatch = true
+            do
+                reset_spritebatch = data:press_cell(data.cell_x, data.cell_y) or reset_spritebatch
             end
         end
     end
@@ -583,6 +584,10 @@ local function update(dt)
         and not mouse.isDown(2)
     then
         data.time_release = Utils:clamp(data.time_release - dt, 0.0, 100.0)
+    end
+
+    if data.chore then
+        -- data:show_tip(data.cell_x, data.cell_y)
     end
 end
 
