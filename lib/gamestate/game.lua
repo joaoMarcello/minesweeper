@@ -395,6 +395,85 @@ data.unpress_neighbor = function(self, cellx, celly)
     return r
 end
 
+local function is_bomb_or_flag(cellx, celly)
+    if cellx < 0 or celly < 0 then return 0 end
+    if cellx > data.width - 1 or celly > data.height - 1 then return 0 end
+
+    local px = cellx * tile
+    local py = celly * tile
+    local id = data.tilemap:get_id(px, py)
+    local state = id and tile_to_state[id]
+    local index = celly * data.width + cellx
+
+    return (data.grid[index] < 0 or state == Cell.flag) and 1 or 0
+end
+
+---@param self Gamestate.Game.Data
+data.count_bomb = function(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return 0 end
+    if cellx > self.width - 1 or celly > self.height - 1 then return 0 end
+
+    -- local r = is_bomb_or_flag(self, cellx, celly)
+
+    local r = is_bomb_or_flag(cellx - 1, celly - 1)
+    r = r + is_bomb_or_flag(cellx, celly - 1)
+    r = r + is_bomb_or_flag(cellx + 1, celly - 1)
+    r = r + is_bomb_or_flag(cellx - 1, celly)
+    r = r + is_bomb_or_flag(cellx + 1, celly)
+    r = r + is_bomb_or_flag(cellx - 1, celly + 1)
+    r = r + is_bomb_or_flag(cellx, celly + 1)
+    r = r + is_bomb_or_flag(cellx + 1, celly + 1)
+
+    return r
+end
+
+--- returns -1 if cell is bomb
+data.reveal_cell = function(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+
+    local px = cellx * tile
+    local py = celly * tile
+    local id = self.tilemap:get_id(px, py)
+    local state = id and tile_to_state[id]
+    local index = celly * data.width + cellx
+    local value = self.grid[index]
+
+    if state == Cell.uncover or state == Cell.flag then return false end
+
+    if value > 0 then
+        self.tilemap:insert_tile(px, py, value + 6)
+        data.state[index] = Cell.uncover
+    elseif value == 0 then
+        data.state[index] = Cell.uncover
+        data.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+    elseif value < 0 then -- cell is bomb
+        return -1
+    else
+        return false
+    end
+    return true
+end
+
+---@param self Gamestate.Game.Data
+data.verify_chore = function(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+
+    local px = cellx * tile
+    local py = celly * tile
+    local id = self.tilemap:get_id(px, py)
+    local state = tile_to_state[id]
+    local index = celly * data.width + cellx
+    local value = self.grid[index]
+
+
+    if value > 0 then
+        local mines = data:count_bomb(cellx, celly)
+        data.count_mines = mines
+    end
+end
+
 local function mousepressed(x, y, button, istouch, presses)
     if istouch then return end
 
@@ -415,6 +494,8 @@ local function mousepressed(x, y, button, istouch, presses)
     end
 end
 
+
+
 local function mousereleased(x, y, button, istouch, presses)
     if istouch then return end
 
@@ -434,6 +515,7 @@ local function mousereleased(x, y, button, istouch, presses)
     if data.first_click and is_inside_board and button == 1
         and state ~= Cell.flag
         and allow_click
+        and not data.chore
     then
         data.first_click = false
         data:build_board(data.cell_y * data.width + data.cell_x)
@@ -442,6 +524,10 @@ local function mousereleased(x, y, button, istouch, presses)
 
     if data.chore then
         data:unpress_neighbor(data.cell_x, data.cell_y)
+
+        if not data.first_click then
+            data:verify_chore(data.cell_x, data.cell_y)
+        end
         data.chore = false
         ---
     elseif is_inside_board and state ~= Cell.uncover and allow_click then
@@ -519,7 +605,13 @@ local function mousemoved(x, y, dx, dy, istouch)
         -- if data.cell_x ~= data.last_cell_x
         --     and data.cell_y ~= data.last_cell_y
         -- then
-        do
+        if not is_inside_board then
+            data:unpress_neighbor(data.last_cell_x, data.last_cell_y)
+            data:unpress_neighbor(data.cell_x, data.cell_y)
+            reset_spritebatch = true
+            -- data.chore = false
+            -- data.pressing = false
+        else
             data:unpress_neighbor(data.last_cell_x, data.last_cell_y)
             data:press_neighbor(data.cell_x, data.cell_y)
             reset_spritebatch = true
@@ -585,10 +677,6 @@ local function update(dt)
     then
         data.time_release = Utils:clamp(data.time_release - dt, 0.0, 100.0)
     end
-
-    if data.chore then
-        -- data:show_tip(data.cell_x, data.cell_y)
-    end
 end
 
 local layer_main = {
@@ -639,6 +727,8 @@ local layer_main = {
         font:print(data.chore and "Chore" or "not chore", 20, 150)
         local mx, my = data.get_mouse_position()
         font:print(position_is_inside_board(mx, my) and "True" or "False", 150, 66)
+
+        font:print(tostring(data.count_mines), 20, 160)
     end
 }
 
