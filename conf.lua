@@ -23,7 +23,7 @@ function love.conf(t)
     t.window.height = 533 -- The window height (number)
     t.window.x = 32
     t.window.y = 32
-    t.window.fullscreen = true          -- Enable fullscreen (boolean)
+    t.window.fullscreen = false         -- Enable fullscreen (boolean)
     t.window.fullscreentype = "desktop" -- "desktop" / "exclusive"
 
 
