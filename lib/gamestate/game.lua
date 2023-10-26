@@ -45,6 +45,7 @@ local Cell = {
     uncover = -6,
     explosion = -7,
     suspicious = -8,
+    wrong = -9,
 }
 
 local tile_to_state = {
@@ -63,6 +64,7 @@ local tile_to_state = {
     [13] = Cell.uncover,
     [14] = Cell.uncover,
     [15] = Cell.suspicious,
+    [16] = Cell.wrong,
 }
 
 local state_to_tile = {
@@ -73,6 +75,7 @@ local state_to_tile = {
     [Cell.bomb] = 5,
     [Cell.explosion] = 6,
     [Cell.suspicious] = 15,
+    [Cell.wrong] = 16,
 }
 
 local tile = _G.TILE
@@ -131,17 +134,28 @@ local function finish()
 end
 
 ---@param self Gamestate.Game.Data
-data.build_board = function(self)
+data.build_board = function(self, exception)
     local t = {}
     local N = self.height * self.width
     for i = 0, N - 1 do
         t[i + 1] = i
     end
+    -- math.randomseed(3)
     shuffle(t)
 
     local mines_pos = {}
-    for i = 0, self.mines - 1 do
-        mines_pos[t[i + 1]] = true
+    local i = 0
+    local j = 1
+    while i < self.mines do
+        local cell = t[j]
+        if not cell then break end
+
+        if cell ~= exception then
+            -- mines_pos[t[i + 1]] = true
+            mines_pos[cell] = true
+            i = i + 1
+        end
+        j = j + 1
     end
 
     for y = 0, self.height - 1 do
@@ -169,51 +183,24 @@ end
 
 local meta_grid = { __index = function() return 0 end }
 local meta_state = { __index = function() return Cell.cover end }
+
 local function init(args)
-    data.tilemap = TileMap:new(generic, "/data/img/tilemap.png", 16)
+    data.tilemap = TileMap:new(generic, "data/img/tilemap.png", 16)
 
     data.height = 8
     data.width = 8
     data.mines = 10
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
+    data.first_click = true
 
-    data:build_board()
-    -- local t = {}
-    -- local N = data.height * data.width
-    -- for i = 0, N - 1 do
-    --     t[i + 1] = i
-    -- end
-    -- shuffle(t)
+    for y = 0, data.height - 1 do
+        for x = 0, data.width - 1 do
+            data.tilemap:insert_tile(x * tile, y * tile, state_to_tile[Cell.cover])
+        end
+    end
 
-    -- local mines_pos = {}
-    -- for i = 0, data.mines - 1 do
-    --     mines_pos[t[i + 1]] = true
-    -- end
-
-    -- for y = 0, data.height - 1 do
-    --     for x = 0, data.width - 1 do
-    --         local index = (y * data.width) + x
-    --         data.grid[index] = data.grid[index] or 0
-
-
-    --         data.state[index] = Cell.cover
-    --         data.tilemap:insert_tile(tile * x, tile * y, 2)
-
-    --         if mines_pos[index] then
-    --             data.grid[index] = Cell.bomb
-    --             increment(x - 1, y - 1)
-    --             increment(x, y - 1)
-    --             increment(x + 1, y - 1)
-    --             increment(x - 1, y)
-    --             increment(x + 1, y)
-    --             increment(x - 1, y + 1)
-    --             increment(x, y + 1)
-    --             increment(x + 1, y + 1)
-    --             -- data.tilemap:insert_tile(tile * x, tile * y, 5)
-    --         end
-    --     end
-    -- end
+    -- data:build_board()
 
     local mx, my = data.get_mouse_position()
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
@@ -254,13 +241,20 @@ data.reveal_game = function(self)
             local py = y * tile
             local index = y * self.width + x
             local value = self.grid[index]
+            local id = self.tilemap:get_id(px, py)
 
             if value < 0 then
-                if value ~= Cell.explosion then
+                if value ~= Cell.explosion
+                    and tile_to_state[id] ~= Cell.flag
+                then
                     self.tilemap:insert_tile(px, py, state_to_tile[Cell.bomb])
                 end
                 -- else
                 -- self:uncover_cells(x, y)
+            else
+                if tile_to_state[id] == Cell.flag then
+                    self.tilemap:insert_tile(px, py, state_to_tile[Cell.wrong])
+                end
             end
         end
     end
@@ -332,6 +326,10 @@ end
 
 local function mousereleased(x, y, button, istouch, presses)
     if istouch then return end
+    if data.first_click then
+        data.first_click = false
+        data:build_board(data.cell_y * data.width + data.cell_x)
+    end
 
     local mx, my = data.get_mouse_position()
     local is_inside_board = position_is_inside_board(mx, my)
@@ -342,47 +340,46 @@ local function mousereleased(x, y, button, istouch, presses)
     local state = tile_to_state[id]
     local index = data.cell_y * data.width + data.cell_x
 
-    if button == 2 or button == 1 then
-        if is_inside_board and state ~= Cell.uncover then
-            if button == 2 then
-                if state == Cell.flag then
-                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
-                    data.state[index] = Cell.cover
-                    ---
-                elseif state == Cell.suspicious then
-                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                    data.state[index] = Cell.cover
-                    ---
-                elseif state == Cell.press then
-                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
-                    ---
-                end
-
-                data.tilemap:reset_spritebatch()
-                --------------
-            else
-                -- Button == 1
-                if data.grid[index] == Cell.bomb then
-                    data.grid[index] = Cell.explosion
-
-                    data.tilemap:insert_tile(px, py,
-                        state_to_tile[Cell.explosion])
-
-                    data:reveal_game()
-                else
-                    data:uncover_cells(data.cell_x, data.cell_y)
-                end
-
-                data.tilemap:reset_spritebatch()
-            end
-            --
-        else
-            if state == Cell.press then
+    -- if button == 2 or button == 1 then
+    if is_inside_board and state ~= Cell.uncover then
+        if button == 2 then
+            if state == Cell.flag then
+                data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+                data.state[index] = Cell.cover
+                ---
+            elseif state == Cell.suspicious then
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                data.tilemap:reset_spritebatch()
+                data.state[index] = Cell.cover
+                ---
+            elseif state == Cell.press or state == Cell.cover then
+                data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+                ---
             end
+
+            data.tilemap:reset_spritebatch()
+            ---
+        elseif button == 1 then
+            if data.grid[index] == Cell.bomb then
+                data.grid[index] = Cell.explosion
+
+                data.tilemap:insert_tile(px, py,
+                    state_to_tile[Cell.explosion])
+
+                data:reveal_game()
+            else
+                data:uncover_cells(data.cell_x, data.cell_y)
+            end
+
+            data.tilemap:reset_spritebatch()
+        end
+        --
+    else
+        if state == Cell.press then
+            data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+            data.tilemap:reset_spritebatch()
         end
     end
+    -- end
 end
 
 local function mousemoved(x, y, dx, dy, istouch)
@@ -508,6 +505,7 @@ local layer_main = {
 
         font:print(tostring(data.cell_x), 150, 16)
         font:print(tostring(data.cell_y), 150, 16 + 16)
+        font:print(tostring(data.cell_y * data.width + data.cell_x), 150, 16 + 16 + 16)
 
         local mx, my = data.get_mouse_position()
         font:print(position_is_inside_board(mx, my) and "True" or "False", 150, 66)
