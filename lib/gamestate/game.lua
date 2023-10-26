@@ -161,10 +161,14 @@ data.build_board = function(self, exception)
     for y = 0, self.height - 1 do
         for x = 0, self.width - 1 do
             local index = (y * self.width) + x
-            -- self.grid[index] = self.grid[index] or 0
+            local px = tile * x
+            local py = tile * y
+            -- local id =
+            local state = tile_to_state[self.tilemap:get_id(px, py)]
 
-            -- self.state[index] = Cell.cover
-            self.tilemap:insert_tile(tile * x, tile * y, state_to_tile[Cell.cover])
+            if state ~= Cell.flag and state ~= Cell.suspicious then
+                self.tilemap:insert_tile(tile * x, tile * y, state_to_tile[Cell.cover])
+            end
 
             if mines_pos[index] then
                 self.grid[index] = Cell.bomb
@@ -193,14 +197,15 @@ local function init(args)
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
+    data.time_click = 0.0
+    data.pressing = false
 
+    -- filling tilemap with cover cells
     for y = 0, data.height - 1 do
         for x = 0, data.width - 1 do
             data.tilemap:insert_tile(x * tile, y * tile, state_to_tile[Cell.cover])
         end
     end
-
-    -- data:build_board()
 
     local mx, my = data.get_mouse_position()
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
@@ -243,6 +248,7 @@ data.reveal_game = function(self)
             local value = self.grid[index]
             local id = self.tilemap:get_id(px, py)
 
+            -- cell is bomb
             if value < 0 then
                 if value ~= Cell.explosion
                     and tile_to_state[id] ~= Cell.flag
@@ -306,7 +312,9 @@ end
 local function mousepressed(x, y, button, istouch, presses)
     if istouch then return end
 
-    if not position_is_inside_board(x, y) then return end
+    if not position_is_inside_board(x, y) or button > 2 then return end
+
+    data.pressing = true
 
     if (button == 1 and love.mouse.isDown(2))
         or (button == 2 and love.mouse.isDown(1))
@@ -326,10 +334,6 @@ end
 
 local function mousereleased(x, y, button, istouch, presses)
     if istouch then return end
-    if data.first_click then
-        data.first_click = false
-        data:build_board(data.cell_y * data.width + data.cell_x)
-    end
 
     local mx, my = data.get_mouse_position()
     local is_inside_board = position_is_inside_board(mx, my)
@@ -339,9 +343,17 @@ local function mousereleased(x, y, button, istouch, presses)
     local id = data.tilemap:get_id(px, py)
     local state = tile_to_state[id]
     local index = data.cell_y * data.width + data.cell_x
+    local allow_click = data.time_click < 0.5
 
-    -- if button == 2 or button == 1 then
-    if is_inside_board and state ~= Cell.uncover then
+    if data.first_click and is_inside_board and button == 1
+        and state ~= Cell.flag
+        and allow_click
+    then
+        data.first_click = false
+        data:build_board(data.cell_y * data.width + data.cell_x)
+    end
+
+    if is_inside_board and state ~= Cell.uncover and allow_click then
         if button == 2 then
             if state == Cell.flag then
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
@@ -366,7 +378,7 @@ local function mousereleased(x, y, button, istouch, presses)
                     state_to_tile[Cell.explosion])
 
                 data:reveal_game()
-            else
+            elseif state ~= Cell.flag then
                 data:uncover_cells(data.cell_x, data.cell_y)
             end
 
@@ -379,7 +391,11 @@ local function mousereleased(x, y, button, istouch, presses)
             data.tilemap:reset_spritebatch()
         end
     end
-    -- end
+
+    if data.pressing then
+        data.pressing = false
+        data.time_click = 0.0
+    end
 end
 
 local function mousemoved(x, y, dx, dy, istouch)
@@ -394,6 +410,8 @@ local function mousemoved(x, y, dx, dy, istouch)
 
     local is_inside_board = position_is_inside_board(mx, my)
 
+    data.last_state = tile_to_state[data.tilemap:get_id(data.last_cell_x * tile, data.last_cell_y * tile)]
+
     if not is_inside_board then
         local px = data.last_cell_x * tile
         local py = data.last_cell_y * tile
@@ -403,15 +421,9 @@ local function mousemoved(x, y, dx, dy, istouch)
         if state == Cell.press then
             data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
             reset_spritebatch = true
-
-            -- data.last_cell_x = data.cell_x
-            -- data.last_cell_y = data.cell_y
         end
-    end
-
-    if (data.cell_x ~= data.last_cell_x or data.cell_y ~= data.last_cell_y)
-        and is_inside_board
-    then
+        ---
+    else
         local px = data.last_cell_x * tile
         local py = data.last_cell_y * tile
 
@@ -429,7 +441,10 @@ local function mousemoved(x, y, dx, dy, istouch)
             local cur_id = data.tilemap:get_id(data.cell_x * tile, data.cell_y * tile)
             local cur_state = tile_to_state[cur_id]
 
-            if cur_state ~= Cell.flag and cur_state ~= Cell.uncover
+            if cur_state ~= Cell.flag
+                and cur_state ~= Cell.uncover
+                and cur_state ~= Cell.suspicious
+                and cur_state ~= Cell.press
             then
                 data.tilemap:insert_tile(data.cell_x * tile, data.cell_y * tile, state_to_tile[Cell.press])
                 reset_spritebatch = true
@@ -439,6 +454,7 @@ local function mousemoved(x, y, dx, dy, istouch)
 
     data.last_cell_x = data.cell_x
     data.last_cell_y = data.cell_y
+
 
     if reset_spritebatch then
         data.tilemap:reset_spritebatch()
@@ -462,7 +478,9 @@ local function gamepadreleased(joystick, button)
 end
 
 local function update(dt)
-
+    if data.pressing then
+        data.time_click = data.time_click + dt
+    end
 end
 
 local layer_main = {
@@ -506,6 +524,9 @@ local layer_main = {
         font:print(tostring(data.cell_x), 150, 16)
         font:print(tostring(data.cell_y), 150, 16 + 16)
         font:print(tostring(data.cell_y * data.width + data.cell_x), 150, 16 + 16 + 16)
+
+        font:print(data.pressing and "Pressing" or "not press", 150, 150)
+        font:print(tostring(data.time_click), 150, 150 + 16)
 
         local mx, my = data.get_mouse_position()
         font:print(position_is_inside_board(mx, my) and "True" or "False", 150, 66)
