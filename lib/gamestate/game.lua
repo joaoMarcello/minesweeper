@@ -104,9 +104,8 @@ local function increment(x, y)
 
     local cell = data.grid[index]
     if cell == Cell.bomb then return false end
-    data.grid[index] = data.grid[index] or 0
+    -- data.grid[index] = data.grid[index] or 0
     data.grid[index] = data.grid[index] + 1
-    -- data.state[index] = Cell.uncover
     return true
 end
 
@@ -131,38 +130,30 @@ local function finish()
 
 end
 
-local function init(args)
-    data.tilemap = TileMap:new(generic, "/data/img/tilemap.png", 16)
-
-    data.height = 8
-    data.width = 8
-    data.mines = 10
-    data.grid = {}
-    data.state = {}
-
+---@param self Gamestate.Game.Data
+data.build_board = function(self)
     local t = {}
-    local N = data.height * data.width
+    local N = self.height * self.width
     for i = 0, N - 1 do
         t[i + 1] = i
     end
     shuffle(t)
 
     local mines_pos = {}
-    for i = 0, data.mines - 1 do
+    for i = 0, self.mines - 1 do
         mines_pos[t[i + 1]] = true
     end
 
-    for y = 0, data.height - 1 do
-        for x = 0, data.width - 1 do
-            local index = (y * data.width) + x
-            data.grid[index] = data.grid[index] or 0
+    for y = 0, self.height - 1 do
+        for x = 0, self.width - 1 do
+            local index = (y * self.width) + x
+            -- self.grid[index] = self.grid[index] or 0
 
-
-            data.state[index] = Cell.cover
-            data.tilemap:insert_tile(tile * x, tile * y, 2)
+            -- self.state[index] = Cell.cover
+            self.tilemap:insert_tile(tile * x, tile * y, state_to_tile[Cell.cover])
 
             if mines_pos[index] then
-                data.grid[index] = Cell.bomb
+                self.grid[index] = Cell.bomb
                 increment(x - 1, y - 1)
                 increment(x, y - 1)
                 increment(x + 1, y - 1)
@@ -171,10 +162,58 @@ local function init(args)
                 increment(x - 1, y + 1)
                 increment(x, y + 1)
                 increment(x + 1, y + 1)
-                -- data.tilemap:insert_tile(tile * x, tile * y, 5)
             end
         end
     end
+end
+
+local meta_grid = { __index = function() return 0 end }
+local meta_state = { __index = function() return Cell.cover end }
+local function init(args)
+    data.tilemap = TileMap:new(generic, "/data/img/tilemap.png", 16)
+
+    data.height = 8
+    data.width = 8
+    data.mines = 10
+    data.grid = setmetatable({}, meta_grid)
+    data.state = setmetatable({}, meta_state)
+
+    data:build_board()
+    -- local t = {}
+    -- local N = data.height * data.width
+    -- for i = 0, N - 1 do
+    --     t[i + 1] = i
+    -- end
+    -- shuffle(t)
+
+    -- local mines_pos = {}
+    -- for i = 0, data.mines - 1 do
+    --     mines_pos[t[i + 1]] = true
+    -- end
+
+    -- for y = 0, data.height - 1 do
+    --     for x = 0, data.width - 1 do
+    --         local index = (y * data.width) + x
+    --         data.grid[index] = data.grid[index] or 0
+
+
+    --         data.state[index] = Cell.cover
+    --         data.tilemap:insert_tile(tile * x, tile * y, 2)
+
+    --         if mines_pos[index] then
+    --             data.grid[index] = Cell.bomb
+    --             increment(x - 1, y - 1)
+    --             increment(x, y - 1)
+    --             increment(x + 1, y - 1)
+    --             increment(x - 1, y)
+    --             increment(x + 1, y)
+    --             increment(x - 1, y + 1)
+    --             increment(x, y + 1)
+    --             increment(x + 1, y + 1)
+    --             -- data.tilemap:insert_tile(tile * x, tile * y, 5)
+    --         end
+    --     end
+    -- end
 
     local mx, my = data.get_mouse_position()
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
@@ -182,12 +221,6 @@ local function init(args)
 
     data.last_cell_x = data.cell_x
     data.last_cell_y = data.cell_y
-
-    -- data.tilemap:insert_tile(16, 16, state_to_tile[Cell.uncover])
-    -- data.tilemap:insert_tile(16, 32, state_to_tile[Cell.uncover])
-    -- data.tilemap:insert_tile(32, 32, state_to_tile[Cell.uncover])
-    -- data.tilemap:insert_tile(16, 16, state_to_tile[Cell.uncover])
-    -- data.tilemap:insert_tile(16, 16, state_to_tile[Cell.uncover])
 end
 
 local function textinput(t)
@@ -226,8 +259,8 @@ data.reveal_game = function(self)
                 if value ~= Cell.explosion then
                     self.tilemap:insert_tile(px, py, state_to_tile[Cell.bomb])
                 end
-            else
-                self:uncover_cells(x, y)
+                -- else
+                -- self:uncover_cells(x, y)
             end
         end
     end
@@ -272,7 +305,6 @@ data.uncover_cells = function(self, cellx, celly)
         data.state[index] = Cell.uncover
         data.tilemap:insert_tile(px, py, 6 + value)
     end
-
 
     return true
 end
@@ -354,6 +386,7 @@ local function mousereleased(x, y, button, istouch, presses)
 end
 
 local function mousemoved(x, y, dx, dy, istouch)
+    if istouch then return end
     -- if not position_is_inside_board(x, y) then return end
 
     local reset_spritebatch = false
