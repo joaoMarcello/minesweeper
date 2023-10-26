@@ -44,6 +44,7 @@ local Cell = {
     cover = -5,
     uncover = -6,
     explosion = -7,
+    suspicious = -8,
 }
 
 local tile_to_state = {
@@ -53,6 +54,15 @@ local tile_to_state = {
     [4] = Cell.flag,
     [5] = Cell.bomb,
     [6] = Cell.explosion,
+    [7] = Cell.uncover,
+    [8] = Cell.uncover,
+    [9] = Cell.uncover,
+    [10] = Cell.uncover,
+    [11] = Cell.uncover,
+    [12] = Cell.uncover,
+    [13] = Cell.uncover,
+    [14] = Cell.uncover,
+    [15] = Cell.suspicious,
 }
 
 local state_to_tile = {
@@ -62,6 +72,7 @@ local state_to_tile = {
     [Cell.flag] = 4,
     [Cell.bomb] = 5,
     [Cell.explosion] = 6,
+    [Cell.suspicious] = 15,
 }
 
 local tile = _G.TILE
@@ -95,6 +106,7 @@ local function increment(x, y)
     if cell == Cell.bomb then return false end
     data.grid[index] = data.grid[index] or 0
     data.grid[index] = data.grid[index] + 1
+    -- data.state[index] = Cell.uncover
     return true
 end
 
@@ -171,11 +183,11 @@ local function init(args)
     data.last_cell_x = data.cell_x
     data.last_cell_y = data.cell_y
 
-    data.tilemap:insert_tile(16, 16, state_to_tile[Cell.uncover])
-    data.tilemap:insert_tile(16, 32, state_to_tile[Cell.uncover])
-    data.tilemap:insert_tile(32, 32, state_to_tile[Cell.uncover])
-    data.tilemap:insert_tile(16, 16, state_to_tile[Cell.uncover])
-    data.tilemap:insert_tile(16, 16, state_to_tile[Cell.uncover])
+    -- data.tilemap:insert_tile(16, 16, state_to_tile[Cell.uncover])
+    -- data.tilemap:insert_tile(16, 32, state_to_tile[Cell.uncover])
+    -- data.tilemap:insert_tile(32, 32, state_to_tile[Cell.uncover])
+    -- data.tilemap:insert_tile(16, 16, state_to_tile[Cell.uncover])
+    -- data.tilemap:insert_tile(16, 16, state_to_tile[Cell.uncover])
 end
 
 local function textinput(t)
@@ -190,6 +202,10 @@ local function keypressed(key)
 
     if key == 's' then
         State:init()
+    end
+
+    if key == 'u' then
+        data:reveal_game()
     end
 end
 
@@ -208,10 +224,69 @@ local function mousepressed(x, y, button, istouch, presses)
         local id = data.tilemap:get_id(px, py)
 
         if tile_to_state[id] == Cell.cover then
-            data.tilemap:insert_tile(data.cell_x * tile, data.cell_y * tile, state_to_tile[Cell.press])
+            data.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
             data.tilemap:reset_spritebatch()
         end
     end
+end
+
+---@param self Gamestate.Game.Data
+data.reveal_game = function(self)
+    for y = 0, self.height - 1 do
+        for x = 0, self.width - 1 do
+            local px = x * tile
+            local py = y * tile
+            local index = y * self.width + x
+            local value = self.grid[index]
+
+            if value < 0 then
+                if value ~= Cell.explosion then
+                    self.tilemap:insert_tile(px, py, state_to_tile[Cell.bomb])
+                end
+            else
+                self:uncover_cells(x, y)
+            end
+        end
+    end
+end
+
+
+---@param self Gamestate.Game.Data
+data.uncover_cells = function(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+
+    local px = cellx * tile
+    local py = celly * tile
+    local id = data.tilemap:get_id(px, py)
+    local state = tile_to_state[id]
+    local index = celly * data.width + cellx
+    local value = self.grid[index]
+
+    if data.state[index] == Cell.uncover
+    then
+        return false
+    end
+
+    data.state[index] = Cell.uncover
+
+    if value == 0 then
+        data.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+
+        self:uncover_cells(cellx - 1, celly - 1)
+        self:uncover_cells(cellx, celly - 1)
+        self:uncover_cells(cellx + 1, celly - 1)
+        self:uncover_cells(cellx - 1, celly)
+        self:uncover_cells(cellx + 1, celly)
+        self:uncover_cells(cellx - 1, celly + 1)
+        self:uncover_cells(cellx, celly + 1)
+        self:uncover_cells(cellx + 1, celly + 1)
+    elseif value > 0 then
+        data.tilemap:insert_tile(px, py, 6 + value)
+    end
+
+
+    return true
 end
 
 local function mousereleased(x, y, button, istouch, presses)
@@ -225,23 +300,36 @@ local function mousereleased(x, y, button, istouch, presses)
         local py = data.cell_y * tile
         local id = data.tilemap:get_id(px, py)
         local state = tile_to_state[id]
+        local index = data.cell_y * data.width + data.cell_x
 
         if is_inside_board and state ~= Cell.uncover then
             if button == 2 then
                 if state == Cell.flag then
+                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+                    ---
+                elseif state == Cell.suspicious then
                     data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+                    ---
                 elseif state == Cell.press then
                     data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+                    ---
                 end
+
                 data.tilemap:reset_spritebatch()
                 --------------
             else
                 -- Button == 1
+                if data.grid[index] == Cell.bomb then
+                    data.grid[index] = Cell.explosion
+                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
+                    data:reveal_game()
+                else
+                    data:uncover_cells(data.cell_x, data.cell_y)
+                end
 
-
-                data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
                 data.tilemap:reset_spritebatch()
             end
+            --
         else
             if state == Cell.press then
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
@@ -297,7 +385,8 @@ local function mousemoved(x, y, dx, dy, istouch)
             local cur_id = data.tilemap:get_id(data.cell_x * tile, data.cell_y * tile)
             local cur_state = tile_to_state[cur_id]
 
-            if cur_state ~= Cell.flag and cur_state ~= Cell.uncover then
+            if cur_state ~= Cell.flag and cur_state ~= Cell.uncover
+            then
                 data.tilemap:insert_tile(data.cell_x * tile, data.cell_y * tile, state_to_tile[Cell.press])
                 reset_spritebatch = true
             end
@@ -348,12 +437,14 @@ local layer_main = {
                 local cell = data.grid[index]
 
                 if cell == Cell.bomb then
-                    love.graphics.setColor(0, 0, 0, 0.25)
+                    love.graphics.setColor(0, 0, 0, 0.12)
                     love.graphics.circle("fill", px + 8, py + 8, 4)
                 else
-                    -- love.graphics.setColor(1, 0, 0)
                     if cell and cell > 0 then
+                        font:push()
+                        font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
                         font:print(tostring(cell), tile * x + 4, tile * y + 4)
+                        font:pop()
                     end
                 end
                 px = px + tile
