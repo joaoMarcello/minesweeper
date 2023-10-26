@@ -195,9 +195,9 @@ local meta_state = { __index = function() return Cell.cover end }
 local function init(args)
     data.tilemap = TileMap:new(generic, "data/img/tilemap.png", 16)
 
-    data.height = 8
-    data.width = 8
-    data.mines = 10
+    data.height = 8 + 4
+    data.width = 8 + 4
+    data.mines = 28
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -405,15 +405,14 @@ local function is_bomb_or_flag(cellx, celly)
     local state = id and tile_to_state[id]
     local index = celly * data.width + cellx
 
-    return (data.grid[index] < 0 or state == Cell.flag) and 1 or 0
+    return (state == Cell.flag) and 1 or 0
+    -- return (data.grid[index] < 0 or state == Cell.flag) and 1 or 0
 end
 
 ---@param self Gamestate.Game.Data
 data.count_bomb = function(self, cellx, celly)
     if cellx < 0 or celly < 0 then return 0 end
     if cellx > self.width - 1 or celly > self.height - 1 then return 0 end
-
-    -- local r = is_bomb_or_flag(self, cellx, celly)
 
     local r = is_bomb_or_flag(cellx - 1, celly - 1)
     r = r + is_bomb_or_flag(cellx, celly - 1)
@@ -445,6 +444,7 @@ data.reveal_cell = function(self, cellx, celly)
         self.tilemap:insert_tile(px, py, value + 6)
         data.state[index] = Cell.uncover
     elseif value == 0 then
+        self:uncover_cells(cellx, celly)
         data.state[index] = Cell.uncover
         data.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
     elseif value < 0 then -- cell is bomb
@@ -468,9 +468,28 @@ data.verify_chore = function(self, cellx, celly)
     local value = self.grid[index]
 
 
-    if value > 0 then
-        local mines = data:count_bomb(cellx, celly)
-        data.count_mines = mines
+    if value > 0 and state ~= Cell.cover then
+        local count = data:count_bomb(cellx, celly)
+        data.count_mines = count
+        local r1, r2, r3, r4, r5, r6, r7, r8
+        if count >= value then
+            r1 = self:reveal_cell(cellx - 1, celly - 1)
+            r2 = self:reveal_cell(cellx, celly - 1)
+            r3 = self:reveal_cell(cellx + 1, celly - 1)
+            r4 = self:reveal_cell(cellx - 1, celly)
+            r5 = self:reveal_cell(cellx + 1, celly)
+            r6 = self:reveal_cell(cellx - 1, celly + 1)
+            r7 = self:reveal_cell(cellx, celly + 1)
+            r8 = self:reveal_cell(cellx + 1, celly + 1)
+
+            if r1 == -1 or r2 == -1 or r3 == -1 or r4 == -1 or r5 == -1 or r6 == -1 or r7 == -1 or r8 == -1 then
+                self:reveal_game()
+                self.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
+                self.tilemap:reset_spritebatch()
+            else
+                -- self:uncover_cells(cellx, celly)
+            end
+        end
     end
 end
 
@@ -551,7 +570,7 @@ local function mousereleased(x, y, button, istouch, presses)
 
             ---
         elseif button == 1 then
-            if data.grid[index] == Cell.bomb then
+            if data.grid[index] == Cell.bomb and state ~= Cell.flag then
                 data.grid[index] = Cell.explosion
 
                 data.tilemap:insert_tile(px, py,
