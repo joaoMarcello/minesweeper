@@ -254,6 +254,7 @@ data.uncover_cells = function(self, cellx, celly)
 
     if value == 0 then
         data.state[index] = Cell.uncover
+
         if state ~= Cell.flag then
             data.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
         end
