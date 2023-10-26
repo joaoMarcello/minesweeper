@@ -213,23 +213,6 @@ local function keyreleased(key)
 
 end
 
-local function mousepressed(x, y, button, istouch, presses)
-    if istouch then return end
-
-    if not position_is_inside_board(x, y) then return end
-
-    if button == 2 or button == 1 then
-        local px = data.cell_x * tile
-        local py = data.cell_y * tile
-        local id = data.tilemap:get_id(px, py)
-
-        if tile_to_state[id] == Cell.cover then
-            data.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
-            data.tilemap:reset_spritebatch()
-        end
-    end
-end
-
 ---@param self Gamestate.Game.Data
 data.reveal_game = function(self)
     for y = 0, self.height - 1 do
@@ -268,10 +251,12 @@ data.uncover_cells = function(self, cellx, celly)
         return false
     end
 
-    data.state[index] = Cell.uncover
 
     if value == 0 then
-        data.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+        data.state[index] = Cell.uncover
+        if state ~= Cell.flag then
+            data.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+        end
 
         self:uncover_cells(cellx - 1, celly - 1)
         self:uncover_cells(cellx, celly - 1)
@@ -281,12 +266,35 @@ data.uncover_cells = function(self, cellx, celly)
         self:uncover_cells(cellx - 1, celly + 1)
         self:uncover_cells(cellx, celly + 1)
         self:uncover_cells(cellx + 1, celly + 1)
+        ---
     elseif value > 0 then
+        data.state[index] = Cell.uncover
         data.tilemap:insert_tile(px, py, 6 + value)
     end
 
 
     return true
+end
+
+local function mousepressed(x, y, button, istouch, presses)
+    if istouch then return end
+
+    if not position_is_inside_board(x, y) then return end
+
+    if (button == 1 and love.mouse.isDown(2))
+        or (button == 2 and love.mouse.isDown(1))
+    then
+        ---
+    elseif button == 1 or button == 2 then
+        local px = data.cell_x * tile
+        local py = data.cell_y * tile
+        local id = data.tilemap:get_id(px, py)
+
+        if tile_to_state[id] == Cell.cover then
+            data.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
+            data.tilemap:reset_spritebatch()
+        end
+    end
 end
 
 local function mousereleased(x, y, button, istouch, presses)
@@ -295,20 +303,22 @@ local function mousereleased(x, y, button, istouch, presses)
     local mx, my = data.get_mouse_position()
     local is_inside_board = position_is_inside_board(mx, my)
 
-    if button == 2 or button == 1 then
-        local px = data.cell_x * tile
-        local py = data.cell_y * tile
-        local id = data.tilemap:get_id(px, py)
-        local state = tile_to_state[id]
-        local index = data.cell_y * data.width + data.cell_x
+    local px = data.cell_x * tile
+    local py = data.cell_y * tile
+    local id = data.tilemap:get_id(px, py)
+    local state = tile_to_state[id]
+    local index = data.cell_y * data.width + data.cell_x
 
+    if button == 2 or button == 1 then
         if is_inside_board and state ~= Cell.uncover then
             if button == 2 then
                 if state == Cell.flag then
                     data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+                    data.state[index] = Cell.cover
                     ---
                 elseif state == Cell.suspicious then
                     data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+                    data.state[index] = Cell.cover
                     ---
                 elseif state == Cell.press then
                     data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
@@ -321,7 +331,10 @@ local function mousereleased(x, y, button, istouch, presses)
                 -- Button == 1
                 if data.grid[index] == Cell.bomb then
                     data.grid[index] = Cell.explosion
-                    data.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
+
+                    data.tilemap:insert_tile(px, py,
+                        state_to_tile[Cell.explosion])
+
                     data:reveal_game()
                 else
                     data:uncover_cells(data.cell_x, data.cell_y)
