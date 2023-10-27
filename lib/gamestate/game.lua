@@ -12,7 +12,7 @@ end
 
 ---@class Gamestate.Game : JM.Scene
 local State = JM.Scene:new {
-    x = 64,
+    x = nil,
     y = nil,
     w = nil,
     h = nil,
@@ -228,7 +228,7 @@ local function init(args)
 
     local cam = State.camera
     cam:set_position(0, 0)
-    -- cam.scale = 0.5
+    -- cam.scale = 1.23
     cam:set_bounds(
         -(data.width * tile) / 2,
         Utils:clamp(data.width * tile * 1.5, State.screen_w, math.huge),
@@ -260,7 +260,7 @@ local function keypressed(key)
         State.camera:toggle_world_bounds()
     end
 
-    if key == 's' then
+    if key == 'i' then
         State:init()
     end
 
@@ -269,6 +269,7 @@ local function keypressed(key)
     end
 
     if key == 'u' then
+        data.continue = 0
         data:reveal_game()
     end
 end
@@ -328,17 +329,18 @@ data.uncover_cells = function(self, cellx, celly)
     local index = celly * data.width + cellx
     local value = self.grid[index]
 
-    if data.state[index] == Cell.uncover
+    if self.state[index] == Cell.uncover
     then
         return false
     end
 
     if value == 0 then
-        data.state[index] = Cell.uncover
+        self.state[index] = Cell.uncover
 
         if state ~= Cell.flag then
             data.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
         end
+        -- data:reveal_cell(cellx, celly)
 
         self:uncover_cells(cellx - 1, celly - 1)
         self:uncover_cells(cellx, celly - 1)
@@ -358,7 +360,8 @@ data.uncover_cells = function(self, cellx, celly)
 end
 
 ---@param self Gamestate.Game.Data
-data.press_cell = function(self, cellx, celly)
+data.press_cell = function(self, cellx, celly, press_uncover)
+    -- press_uncover = true
     if cellx < 0 or celly < 0 then return false end
     if cellx > self.width - 1 or celly > self.height - 1 then return false end
 
@@ -375,11 +378,11 @@ data.press_cell = function(self, cellx, celly)
     elseif state == Cell.suspicious and state ~= Cell.susp_pressed then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.susp_pressed])
         ---
-    elseif state == Cell.uncover then
+    elseif state == Cell.uncover and press_uncover then
         if value > 0 then
             self.tilemap:insert_tile(px, py, 17 + value)
         elseif value == 0 then
-            -- self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
+            self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
         end
     else
         return false
@@ -388,7 +391,8 @@ data.press_cell = function(self, cellx, celly)
 end
 
 ---@param self Gamestate.Game.Data
-data.unpress_cell = function(self, cellx, celly)
+data.unpress_cell = function(self, cellx, celly, unpress_uncover)
+    -- unpress_uncover
     if cellx < 0 or celly < 0 then return false end
     if cellx > self.width - 1 or celly > self.height - 1 then return false end
 
@@ -399,41 +403,24 @@ data.unpress_cell = function(self, cellx, celly)
     local index = celly * self.width + cellx
     local value = self.grid[index]
 
-    if state == Cell.press and state ~= Cell.cover then
+    if state == Cell.press and state ~= Cell.cover
+        and self.state[index] ~= Cell.uncover
+    then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
         ---
     elseif state == Cell.susp_pressed and state ~= Cell.suspicious then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
         ---
-    elseif state == Cell.uncover then
+    elseif self.state[index] == Cell.uncover and unpress_uncover then
         if value > 0 then
             self.tilemap:insert_tile(px, py, 6 + value)
         elseif value == 0 then
-            -- self.tilemap:insert_tile(px, py, 1)
+            self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
         end
     else
         return false
     end
     return true
-end
-
----@param self Gamestate.Game.Data
-data.press_neighbor = function(self, cellx, celly)
-    if cellx < 0 or celly < 0 then return false end
-    if cellx > self.width - 1 or celly > self.height - 1 then return false end
-
-    local r = self:press_cell(cellx, celly)
-
-    r = self:press_cell(cellx - 1, celly - 1) or r
-    r = self:press_cell(cellx, celly - 1) or r
-    r = self:press_cell(cellx + 1, celly - 1) or r
-    r = self:press_cell(cellx - 1, celly) or r
-    r = self:press_cell(cellx + 1, celly) or r
-    r = self:press_cell(cellx - 1, celly + 1) or r
-    r = self:press_cell(cellx, celly + 1) or r
-    r = self:press_cell(cellx + 1, celly + 1) or r
-
-    return r
 end
 
 data.revive = function(self)
@@ -459,20 +446,39 @@ data.revive = function(self)
 end
 
 ---@param self Gamestate.Game.Data
+data.press_neighbor = function(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+
+    local r = self:press_cell(cellx, celly, true)
+
+    r = self:press_cell(cellx - 1, celly - 1, true) or r
+    r = self:press_cell(cellx, celly - 1, true) or r
+    r = self:press_cell(cellx + 1, celly - 1, true) or r
+    r = self:press_cell(cellx - 1, celly, true) or r
+    r = self:press_cell(cellx + 1, celly, true) or r
+    r = self:press_cell(cellx - 1, celly + 1, true) or r
+    r = self:press_cell(cellx, celly + 1, true) or r
+    r = self:press_cell(cellx + 1, celly + 1, true) or r
+
+    return r
+end
+
+---@param self Gamestate.Game.Data
 data.unpress_neighbor = function(self, cellx, celly)
     if cellx < 0 or celly < 0 then return false end
     if cellx > self.width - 1 or celly > self.height - 1 then return false end
 
-    local r = self:unpress_cell(cellx, celly)
+    local r = self:unpress_cell(cellx, celly, true)
 
-    r = self:unpress_cell(cellx - 1, celly - 1) or r
-    r = self:unpress_cell(cellx, celly - 1) or r
-    r = self:unpress_cell(cellx + 1, celly - 1) or r
-    r = self:unpress_cell(cellx - 1, celly) or r
-    r = self:unpress_cell(cellx + 1, celly) or r
-    r = self:unpress_cell(cellx - 1, celly + 1) or r
-    r = self:unpress_cell(cellx, celly + 1) or r
-    r = self:unpress_cell(cellx + 1, celly + 1) or r
+    r = self:unpress_cell(cellx - 1, celly - 1, true) or r
+    r = self:unpress_cell(cellx, celly - 1, true) or r
+    r = self:unpress_cell(cellx + 1, celly - 1, true) or r
+    r = self:unpress_cell(cellx - 1, celly, true) or r
+    r = self:unpress_cell(cellx + 1, celly, true) or r
+    r = self:unpress_cell(cellx - 1, celly + 1, true) or r
+    r = self:unpress_cell(cellx, celly + 1, true) or r
+    r = self:unpress_cell(cellx + 1, celly + 1, true) or r
 
     return r
 end
@@ -658,6 +664,8 @@ local function mousereleased(x, y, button, istouch, presses)
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
                 ---
             elseif state ~= Cell.flag then
+                -- data.state[index] = Cell.uncover
+                data:unpress_cell(data.cell_x, data.cell_y)
                 data:uncover_cells(data.cell_x, data.cell_y)
             end
 
@@ -779,15 +787,17 @@ local function update(dt)
 
     local cam = State.camera
     local speed = 32
-    if love.keyboard.isDown("right") then
+    local controller = JM.ControllerManager.P1
+
+    if controller:pressing(controller.Button.dpad_right) then
         cam:move(speed * dt)
-    elseif love.keyboard.isDown("left") then
+    elseif controller:pressing(controller.Button.dpad_left) then
         cam:move(-speed * dt)
     end
 
-    if love.keyboard.isDown("down") then
+    if controller:pressing(controller.Button.dpad_down) then
         cam:move(0, speed * dt)
-    elseif love.keyboard.isDown("up") then
+    elseif controller:pressing(controller.Button.dpad_up) then
         cam:move(0, -speed * dt)
     end
 end
@@ -803,27 +813,27 @@ local layer_main = {
 
         local px = 0
         local py = 0
-        for y = 0, data.height - 1 do
-            for x = 0, data.width - 1 do
-                local index = (y * data.width) + x
-                local cell = data.grid[index]
+        -- for y = 0, data.height - 1 do
+        --     for x = 0, data.width - 1 do
+        --         local index = (y * data.width) + x
+        --         local cell = data.grid[index]
 
-                if cell == Cell.bomb then
-                    love.graphics.setColor(0, 0, 0, 0.12)
-                    love.graphics.circle("fill", px + 8, py + 8, 4)
-                else
-                    if cell and cell > 0 then
-                        font:push()
-                        font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
-                        font:print(tostring(cell), tile * x + 4, tile * y + 4)
-                        font:pop()
-                    end
-                end
-                px = px + tile
-            end
-            py = py + tile
-            px = 0
-        end
+        --         if cell == Cell.bomb then
+        --             love.graphics.setColor(0, 0, 0, 0.12)
+        --             love.graphics.circle("fill", px + 8, py + 8, 4)
+        --         else
+        --             if cell and cell > 0 then
+        --                 font:push()
+        --                 font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
+        --                 font:print(tostring(cell), tile * x + 4, tile * y + 4)
+        --                 font:pop()
+        --             end
+        --         end
+        --         px = px + tile
+        --     end
+        --     py = py + tile
+        --     px = 0
+        -- end
 
         -- py = 10
         -- for i = 1, data.mines do
