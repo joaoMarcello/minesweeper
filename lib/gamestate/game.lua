@@ -805,14 +805,18 @@ local function update(dt)
 
     if controller:pressing(controller.Button.dpad_right) then
         cam:move(speed * dt)
+        mousemoved()
     elseif controller:pressing(controller.Button.dpad_left) then
         cam:move(-speed * dt)
+        mousemoved()
     end
 
     if controller:pressing(controller.Button.dpad_down) then
         cam:move(0, speed * dt)
+        mousemoved()
     elseif controller:pressing(controller.Button.dpad_up) then
         cam:move(0, -speed * dt)
+        mousemoved()
     end
 end
 
@@ -825,29 +829,33 @@ local layer_main = {
 
         data.tilemap:draw(cam)
 
-        local px = 0
-        local py = 0
-        for y = 0, data.height - 1 do
-            for x = 0, data.width - 1 do
-                local index = (y * data.width) + x
-                local cell = data.grid[index]
+        love.graphics.setColor(1, 0, 0, 0.3)
+        local mx, my = data.get_mouse_position(cam)
+        love.graphics.circle("fill", mx, my, 1)
 
-                if cell == Cell.bomb then
-                    love.graphics.setColor(0, 0, 0, 0.12)
-                    love.graphics.circle("fill", px + 8, py + 8, 4)
-                else
-                    if cell and cell > 0 then
-                        font:push()
-                        font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
-                        font:print(tostring(cell), tile * x + 4, tile * y + 4)
-                        font:pop()
-                    end
-                end
-                px = px + tile
-            end
-            py = py + tile
-            px = 0
-        end
+        -- local px = 0
+        -- local py = 0
+        -- for y = 0, data.height - 1 do
+        --     for x = 0, data.width - 1 do
+        --         local index = (y * data.width) + x
+        --         local cell = data.grid[index]
+
+        --         if cell == Cell.bomb then
+        --             love.graphics.setColor(0, 0, 0, 0.12)
+        --             love.graphics.circle("fill", px + 8, py + 8, 4)
+        --         else
+        --             if cell and cell > 0 then
+        --                 font:push()
+        --                 font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
+        --                 font:print(tostring(cell), tile * x + 4, tile * y + 4)
+        --                 font:pop()
+        --             end
+        --         end
+        --         px = px + tile
+        --     end
+        --     py = py + tile
+        --     px = 0
+        -- end
 
         -- py = 10
         -- for i = 1, data.mines do
