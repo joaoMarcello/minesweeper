@@ -214,9 +214,9 @@ local meta_state = { __index = function() return Cell.cover end }
 local function init(args)
     data.tilemap = TileMap:new(generic, "data/img/tilemap.png", 16)
 
-    data.height = 8 + 4
-    data.width = 8 + 4
-    data.mines = 28
+    data.height = 8 --+ 4
+    data.width = 8  --+ 4
+    data.mines = 10 --28
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -532,7 +532,7 @@ data.reveal_cell = function(self, cellx, celly, show_explosion)
         self.tilemap:insert_tile(px, py, value + 6)
         data.state[index] = Cell.uncover
     elseif value == 0 then
-        -- self:uncover_cells(cellx, celly)
+        self:uncover_cells(cellx, celly)
         data.state[index] = Cell.uncover
         data.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
     elseif value < 0 then -- cell is bomb
@@ -560,7 +560,7 @@ data.verify_chording = function(self, cellx, celly)
 
     if value > 0 and state ~= Cell.cover then
         local count = data:count_neighbor_flags(cellx, celly)
-        data.count_mines = count
+        -- data.count_mines = count
         local r1, r2, r3, r4, r5, r6, r7, r8
 
         if count == value then
@@ -603,7 +603,7 @@ local function mousepressed(x, y, button, istouch, presses)
 
     if (button == 1 and mouse.isDown(2))
         or (button == 2 and mouse.isDown(1))
-        or data.state[index] == Cell.uncover
+        or (data.state[index] == Cell.uncover and button == 2 and state ~= Cell.flag)
     then
         data.chording = true
         data:press_neighbor(data.cell_x, data.cell_y)
@@ -855,20 +855,19 @@ local layer_main = {
         --     py = py + 16
         -- end
 
-        font:print(tostring(data.cell_x), 200, 16)
-        font:print(tostring(data.cell_y), 200, 16 + 16)
-        font:print(tostring(data.cell_y * data.width + data.cell_x), 200, 16 + 16 + 16)
+        -- font:print(tostring(data.cell_x), 200, 16)
+        -- font:print(tostring(data.cell_y), 200, 16 + 16)
+        -- font:print(tostring(data.cell_y * data.width + data.cell_x), 200, 16 + 16 + 16)
 
-        font:print(data.pressing and "Pressing" or "not press", 200, 150)
-        font:print(tostring(data.time_click), 150, 150 + 16)
+        -- font:print(data.pressing and "Pressing" or "not press", 200, 150)
+        -- font:print(tostring(data.time_click), 150, 150 + 16)
 
-        font:print(data.chording and "Chore" or "not chore", 20, 150)
-        local mx, my = data.get_mouse_position()
-        font:print(position_is_inside_board(mx, my) and "True" or "False", 200, 66)
+        -- font:print(data.chording and "Chore" or "not chore", 20, 150)
+        -- local mx, my = data.get_mouse_position()
+        -- font:print(position_is_inside_board(mx, my) and "True" or "False", 200, 66)
 
-        font:print("Continue" .. tostring(data.continue), 200, 90)
 
-        font:print(tostring(data.count_mines), 20, 160)
+        -- font:print(tostring(data.count_mines), 20, 160)
     end
 }
 
@@ -878,6 +877,8 @@ local layer_gui = {
         if cam == State.camera then return end
         love.graphics.setColor(0, 0, 1)
         love.graphics.rectangle("fill", 0, 0, 100, 32)
+        local font = JM.Font.current
+        font:print("Continue " .. tostring(data.continue), 20, 90)
     end
 }
 
