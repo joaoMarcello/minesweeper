@@ -584,12 +584,26 @@ end
 local function mousepressed(x, y, button, istouch, presses)
     if istouch then return end
 
-    if not position_is_inside_board(x, y) or button > 2 then return end
+    local mx, my = data.get_mouse_position()
+    local is_inside_board = position_is_inside_board(mx, my)
+
+    if not is_inside_board or button > 2 then return end
 
     data.pressing = true
 
+    local px = data.cell_x * tile
+    local py = data.cell_y * tile
+    local id = data.tilemap:get_id(px, py)
+    local state = tile_to_state[id]
+    local index = data.cell_y * data.width + data.cell_x
+    local reset_spritebatch = false
+    local allow_click = data.time_click < 0.5
+        and data.time_release <= 0.0
+        and data.pressing
+
     if (button == 1 and mouse.isDown(2))
         or (button == 2 and mouse.isDown(1))
+        or data.state[index] == Cell.uncover
     then
         data.chording = true
         data:press_neighbor(data.cell_x, data.cell_y)
@@ -813,27 +827,27 @@ local layer_main = {
 
         local px = 0
         local py = 0
-        -- for y = 0, data.height - 1 do
-        --     for x = 0, data.width - 1 do
-        --         local index = (y * data.width) + x
-        --         local cell = data.grid[index]
+        for y = 0, data.height - 1 do
+            for x = 0, data.width - 1 do
+                local index = (y * data.width) + x
+                local cell = data.grid[index]
 
-        --         if cell == Cell.bomb then
-        --             love.graphics.setColor(0, 0, 0, 0.12)
-        --             love.graphics.circle("fill", px + 8, py + 8, 4)
-        --         else
-        --             if cell and cell > 0 then
-        --                 font:push()
-        --                 font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
-        --                 font:print(tostring(cell), tile * x + 4, tile * y + 4)
-        --                 font:pop()
-        --             end
-        --         end
-        --         px = px + tile
-        --     end
-        --     py = py + tile
-        --     px = 0
-        -- end
+                if cell == Cell.bomb then
+                    love.graphics.setColor(0, 0, 0, 0.12)
+                    love.graphics.circle("fill", px + 8, py + 8, 4)
+                else
+                    if cell and cell > 0 then
+                        font:push()
+                        font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
+                        font:print(tostring(cell), tile * x + 4, tile * y + 4)
+                        font:pop()
+                    end
+                end
+                px = px + tile
+            end
+            py = py + tile
+            px = 0
+        end
 
         -- py = 10
         -- for i = 1, data.mines do
