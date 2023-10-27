@@ -12,7 +12,7 @@ end
 
 ---@class Gamestate.Game : JM.Scene
 local State = JM.Scene:new {
-    x = nil,
+    x = 64,
     y = nil,
     w = nil,
     h = nil,
@@ -27,6 +27,13 @@ local State = JM.Scene:new {
     bound_bottom = 1366,
     cam_scale = 1,
 }
+
+State:add_camera {
+    name = "cam2",
+    border_color = Utils:get_rgba(),
+}
+local cam2 = State:get_camera("cam2")
+cam2:set_viewport(200, nil, State.screen_w / 2, State.screen_h)
 
 ---@enum Gamestate.Game.Modes
 local Mode = {
@@ -56,6 +63,7 @@ local tile_to_state = {
     [4] = Cell.flag,
     [5] = Cell.bomb,
     [6] = Cell.explosion,
+    -- Revealed numbers
     [7] = Cell.uncover,
     [8] = Cell.uncover,
     [9] = Cell.uncover,
@@ -64,9 +72,19 @@ local tile_to_state = {
     [12] = Cell.uncover,
     [13] = Cell.uncover,
     [14] = Cell.uncover,
+    ---
     [15] = Cell.suspicious,
     [16] = Cell.wrong,
     [17] = Cell.susp_pressed,
+    -- pressed numbers
+    [18] = Cell.uncover,
+    [19] = Cell.uncover,
+    [20] = Cell.uncover,
+    [21] = Cell.uncover,
+    [22] = Cell.uncover,
+    [23] = Cell.uncover,
+    [24] = Cell.uncover,
+    [25] = Cell.uncover,
 }
 
 local state_to_tile = {
@@ -117,7 +135,8 @@ local function increment(x, y)
 end
 
 local function position_is_inside_board(x, y)
-    return x > 0 and x <= data.width * tile and y > 0 and y <= data.height * tile
+    return x > 0 and x <= data.width * tile and y > 0 and y <= data.height * tile and
+        State.camera:point_is_on_screen(x, y)
 end
 
 local generic = function()
@@ -205,6 +224,16 @@ local function init(args)
     data.time_click = 0.0
     data.time_release = 0.0
     data.pressing = false
+    data.cam2 = State:get_camera("cam2")
+
+    local cam = State.camera
+    cam:set_position(0, 0)
+    -- cam.scale = 0.5
+    cam:set_bounds(
+        -(data.width * tile) / 2,
+        Utils:clamp(data.width * tile * 1.5, State.screen_w, math.huge),
+        -(data.width * tile) / 2,
+        State.screen_h + (data.height * tile) / 2)
 
     -- filling tilemap with cover cells
     for y = 0, data.height - 1 do
@@ -337,6 +366,8 @@ data.press_cell = function(self, cellx, celly)
     local py = celly * tile
     local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
+    local index = celly * self.width + cellx
+    local value = self.grid[index]
 
     if state == Cell.cover and state ~= Cell.press then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
@@ -344,6 +375,12 @@ data.press_cell = function(self, cellx, celly)
     elseif state == Cell.suspicious and state ~= Cell.susp_pressed then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.susp_pressed])
         ---
+    elseif state == Cell.uncover then
+        if value > 0 then
+            self.tilemap:insert_tile(px, py, 17 + value)
+        elseif value == 0 then
+            -- self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
+        end
     else
         return false
     end
@@ -359,6 +396,8 @@ data.unpress_cell = function(self, cellx, celly)
     local py = celly * tile
     local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
+    local index = celly * self.width + cellx
+    local value = self.grid[index]
 
     if state == Cell.press and state ~= Cell.cover then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
@@ -366,6 +405,12 @@ data.unpress_cell = function(self, cellx, celly)
     elseif state == Cell.susp_pressed and state ~= Cell.suspicious then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
         ---
+    elseif state == Cell.uncover then
+        if value > 0 then
+            self.tilemap:insert_tile(px, py, 6 + value)
+        elseif value == 0 then
+            -- self.tilemap:insert_tile(px, py, 1)
+        end
     else
         return false
     end
@@ -440,7 +485,7 @@ local function is_flag(cellx, celly)
     local py = celly * tile
     local id = data.tilemap:get_id(px, py)
     local state = id and tile_to_state[id]
-    local index = celly * data.width + cellx
+    -- local index = celly * data.width + cellx
 
     return (state == Cell.flag) and 1 or 0
     -- return (data.grid[index] < 0 or state == Cell.flag) and 1 or 0
@@ -524,10 +569,7 @@ data.verify_chording = function(self, cellx, celly)
 
             if r1 == -1 or r2 == -1 or r3 == -1 or r4 == -1 or r5 == -1 or r6 == -1 or r7 == -1 or r8 == -1 then
                 self:reveal_game()
-                -- self.tilemap:insert_tile(xpx, xpy, state_to_tile[Cell.explosion])
                 self.tilemap:reset_spritebatch()
-            else
-                -- self:uncover_cells(cellx, celly)
             end
         end
     end
@@ -734,15 +776,30 @@ local function update(dt)
     then
         data.time_release = Utils:clamp(data.time_release - dt, 0.0, 100.0)
     end
+
+    local cam = State.camera
+    local speed = 32
+    if love.keyboard.isDown("right") then
+        cam:move(speed * dt)
+    elseif love.keyboard.isDown("left") then
+        cam:move(-speed * dt)
+    end
+
+    if love.keyboard.isDown("down") then
+        cam:move(0, speed * dt)
+    elseif love.keyboard.isDown("up") then
+        cam:move(0, -speed * dt)
+    end
 end
 
 local layer_main = {
     ---@param cam JM.Camera.Camera
     draw = function(self, cam)
+        if cam == data.cam2 then return end
+
         local font = JM.Font.current
 
         data.tilemap:draw(cam)
-
 
         local px = 0
         local py = 0
@@ -791,9 +848,19 @@ local layer_main = {
     end
 }
 
+local layer_gui = {
+    ---@param cam JM.Camera.Camera
+    draw = function(self, cam)
+        if cam == State.camera then return end
+        love.graphics.setColor(0, 0, 1)
+        love.graphics.rectangle("fill", 0, 0, 100, 32)
+    end
+}
+
 local layers = {
     --
     layer_main,
+    layer_gui,
     --
     --
 }
