@@ -195,9 +195,9 @@ local function init(args)
     data.tilemap = TileMap:new(generic, "data/img/tilemap.png", 16)
     data.number_tilemap = TileMap:new(generic, "data/img/number_tilemap.png", 16)
 
-    data.height = 8 --+ 4
-    data.width = 8  --+ 4
-    data.mines = 10 --28
+    data.height = 100 --+ 4
+    data.width = 100  --+ 4
+    data.mines = 1000 --28
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -209,6 +209,8 @@ local function init(args)
 
     local cam = State.camera
     cam:set_position(0, 0)
+    cam.scale = 1
+    cam.min_zoom = 0.1
     -- cam.scale = 1.23
     cam:set_bounds(
         -(data.width * tile) / 2,
@@ -216,7 +218,7 @@ local function init(args)
         -(data.width * tile) / 2,
         State.screen_h + (data.height * tile) / 2)
 
-    -- cam:set_bounds(-math.huge, math.huge, -math.huge, math.huge)
+    cam:set_bounds(-math.huge, math.huge, -math.huge, math.huge)
 
     -- filling tilemap with cover cells
     for y = 0, data.height - 1 do
@@ -720,11 +722,13 @@ local function mousemoved(x, y, dx, dy, istouch)
 
     local cam = State.camera
 
-    if dx and dy and mouse.isDown(1) and not data.chording then
+    if dx and math.abs(dx) > 0 and dy and math.abs(dy) > 0 and mouse.isDown(1) and not data.chording then
         local ds = math.min((State.w - State.x) / State.screen_w,
             (State.h - State.y) / State.screen_h
         )
         -- data.dx = dx
+        -- data.pressing = false
+        data.time_click = 1
         cam:move(-dx / ds / cam.scale, -dy / ds / cam.scale)
     end
 
