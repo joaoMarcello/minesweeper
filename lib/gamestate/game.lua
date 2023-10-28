@@ -216,6 +216,8 @@ local function init(args)
         -(data.width * tile) / 2,
         State.screen_h + (data.height * tile) / 2)
 
+    -- cam:set_bounds(-math.huge, math.huge, -math.huge, math.huge)
+
     -- filling tilemap with cover cells
     for y = 0, data.height - 1 do
         for x = 0, data.width - 1 do
@@ -239,6 +241,7 @@ local function keypressed(key)
     if key == 'o' then
         State.camera:toggle_grid()
         State.camera:toggle_world_bounds()
+        State.camera:toggle_debug()
     end
 
     if key == 'i' then
@@ -711,21 +714,26 @@ local function mousemoved(x, y, dx, dy, istouch)
 
     local reset_spritebatch = false
 
-    local cam = State.camera
-    if dx and dy and mouse.isDown(1) then
-        local ds = math.min((State.w - State.x) / State.screen_w,
-            (State.h - State.y) / State.screen_h
-        )
-        data.dx = dx
-        cam:move(-dx / ds, -dy / ds)
-    end
-
     local mx, my = State:get_mouse_position() --data.get_mouse_position()
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
+    local cam = State.camera
+
+    if dx and dy and mouse.isDown(1) then
+        local ds = math.min((State.w - State.x) / State.screen_w,
+            (State.h - State.y) / State.screen_h
+        )
+        -- data.dx = dx
+        cam:move(-dx / ds / cam.scale, -dy / ds / cam.scale)
+    end
+
+
     local is_inside_board = position_is_inside_board(mx, my)
 
+    local mx2, my2 = cam:world_to_screen(mx, my)
+    cam:set_focus_x(mx2)
+    cam:set_focus_y(my2)
     -- data.last_state = tile_to_state[data.tilemap:get_id(data.last_cell_x * tile, data.last_cell_y * tile)]
 
     if data.chording then
@@ -764,6 +772,26 @@ local function mousemoved(x, y, dx, dy, istouch)
 
     if reset_spritebatch then
         data.tilemap:reset_spritebatch()
+    end
+end
+
+local function wheelmoved(x, y)
+    -- local mx, my = State:get_mouse_position()
+    -- local is_inside_board = position_is_inside_board(mx, my)
+    -- if is_inside_board then
+    do
+        local zoom = 0
+        local speed = 1
+        local dt = love.timer.getDelta()
+
+        if y > 0 then
+            zoom = State.camera.scale + speed * dt
+        else
+            zoom = State.camera.scale - speed * dt
+        end
+        zoom = Utils:clamp(zoom, State.camera.min_zoom, State.camera.max_zoom)
+        -- State.camera.scale = zoom
+        State.camera:set_zoom(zoom)
     end
 end
 
@@ -893,7 +921,9 @@ local layer_gui = {
         love.graphics.rectangle("fill", 0, 0, 100, 32)
         local font = JM.Font.current
         font:print("Continue " .. tostring(data.continue), 20, 90)
-        font:print(tostring(data.dx), 20, 150)
+        -- font:print(tostring(data.dx), 20, 150)
+        local vx, vy, vw, vh = State.camera:get_viewport_in_world_coord()
+        font:print(string.format("%f\n %f\n %f\n %f", vx, vy, vw, vh), 20, 120)
     end
 }
 
@@ -915,6 +945,7 @@ State:implements {
     mousepressed = mousepressed,
     mousereleased = mousereleased,
     mousemoved = mousemoved,
+    wheelmoved = wheelmoved,
     touchpressed = touchpressed,
     touchreleased = touchreleased,
     gamepadpressed = gamepadpressed,
