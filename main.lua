@@ -77,6 +77,11 @@ function love.mousemoved(x, y, dx, dy, istouch)
     if scene then scene:mousemoved(x, y, dx, dy, istouch) end
 end
 
+function love.wheelmoved(x, y)
+    local scene = SceneManager.scene
+    if scene then scene:wheelmoved(x, y) end
+end
+
 function love.touchpressed(id, x, y, dx, dy, pressure)
     local scene = SceneManager.scene
     if scene then scene:touchpressed(id, x, y, dx, dy, pressure) end
