@@ -47,13 +47,13 @@ local Cell = {
     bomb = -1,
     flag = -2,
     press = -3,
-    stand = -4,
     cover = -5,
     uncover = -6,
     explosion = -7,
-    suspicious = -8,
     wrong = -9,
-    susp_pressed = -10,
+    -- stand = -4,
+    -- suspicious = -8,
+    -- susp_pressed = -10,
 }
 
 local tile_to_state = {
@@ -63,28 +63,28 @@ local tile_to_state = {
     [4] = Cell.flag,
     [5] = Cell.bomb,
     [6] = Cell.explosion,
+    [7] = Cell.wrong,
     -- Revealed numbers
-    [7] = Cell.uncover,
-    [8] = Cell.uncover,
-    [9] = Cell.uncover,
-    [10] = Cell.uncover,
-    [11] = Cell.uncover,
-    [12] = Cell.uncover,
-    [13] = Cell.uncover,
-    [14] = Cell.uncover,
+    -- [7] = Cell.uncover,
+    -- [8] = Cell.uncover,
+    -- [9] = Cell.uncover,
+    -- [10] = Cell.uncover,
+    -- [11] = Cell.uncover,
+    -- [12] = Cell.uncover,
+    -- [13] = Cell.uncover,
+    -- [14] = Cell.uncover,
     ---
-    [15] = Cell.suspicious,
-    [16] = Cell.wrong,
-    [17] = Cell.susp_pressed,
-    -- pressed numbers
-    [18] = Cell.uncover,
-    [19] = Cell.uncover,
-    [20] = Cell.uncover,
-    [21] = Cell.uncover,
-    [22] = Cell.uncover,
-    [23] = Cell.uncover,
-    [24] = Cell.uncover,
-    [25] = Cell.uncover,
+    -- [15] = Cell.suspicious,
+    -- [17] = Cell.susp_pressed,
+    -- -- pressed numbers
+    -- [18] = Cell.uncover,
+    -- [19] = Cell.uncover,
+    -- [20] = Cell.uncover,
+    -- [21] = Cell.uncover,
+    -- [22] = Cell.uncover,
+    -- [23] = Cell.uncover,
+    -- [24] = Cell.uncover,
+    -- [25] = Cell.uncover,
 }
 
 local state_to_tile = {
@@ -94,9 +94,9 @@ local state_to_tile = {
     [Cell.flag] = 4,
     [Cell.bomb] = 5,
     [Cell.explosion] = 6,
-    [Cell.suspicious] = 15,
-    [Cell.wrong] = 16,
-    [Cell.susp_pressed] = 17,
+    [Cell.wrong] = 7,
+    -- [Cell.suspicious] = 15,
+    -- [Cell.susp_pressed] = 17,
 }
 
 local tile = _G.TILE
@@ -340,6 +340,7 @@ data.uncover_cells = function(self, cellx, celly)
 
         if state ~= Cell.flag then
             self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+            self.number_tilemap:insert_tile(px, py)
         end
         -- data:reveal_cell(cellx, celly)
 
@@ -363,6 +364,21 @@ data.uncover_cells = function(self, cellx, celly)
 end
 
 ---@param self Gamestate.Game.Data
+local function neighbor_is_uncover(self, cellx, celly, fill)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+
+    local index = celly * self.width + cellx
+    local r = self.state[index] == Cell.uncover
+    if r and fill then
+        local px = cellx * tile
+        local py = celly * tile
+        self.tilemap:insert_tile(px, py, fill)
+    end
+    return r
+end
+
+---@param self Gamestate.Game.Data
 data.press_cell = function(self, cellx, celly, press_uncover)
     press_uncover = false
     if cellx < 0 or celly < 0 then return false end
@@ -373,13 +389,20 @@ data.press_cell = function(self, cellx, celly, press_uncover)
     local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
     local index = celly * self.width + cellx
-    local value = self.grid[index]
+    -- local value = self.grid[index]
 
     -- if state == Cell.cover and state ~= Cell.press then
-    if self.state[index] == Cell.cover and state ~= Cell.flag
+    if self.state[index] == Cell.cover
+        and state ~= Cell.flag
         and state ~= Cell.explosion
     then
-        self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
+        neighbor_is_uncover(self, cellx, celly + 1, 8)
+
+        if neighbor_is_uncover(self, cellx + 1, celly) then
+            self.tilemap:insert_tile(px, py, 9)
+        else
+            self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
+        end
 
         if self.number_tilemap:get_id(px, py) == 9 then
             self.number_tilemap:insert_tile(px, py, 10)
@@ -418,7 +441,14 @@ data.unpress_cell = function(self, cellx, celly, unpress_uncover)
     -- if state == Cell.press and state ~= Cell.cover
     --     and self.state[index] ~= Cell.uncover
     -- then
-    if self.state[index] == Cell.cover and state ~= Cell.flag and state ~= Cell.explosion then
+    if self.state[index] == Cell.cover
+        and state ~= Cell.flag
+        and state ~= Cell.explosion
+    then
+        neighbor_is_uncover(self, cellx, celly + 1, 1)
+        -- neighbor_is_uncover(self, cellx + 1, celly, 1)
+
+
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
 
         if self.number_tilemap:get_id(px, py) == 10 then
@@ -453,8 +483,10 @@ data.revive = function(self)
 
             if state == Cell.wrong then
                 self:reveal_cell(x, y)
+                -- self.number_tilemap:insert_tile(px, py)
             elseif state == Cell.explosion then
                 self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+                -- self.number_tilemap:insert_tile(px, py)
             end
         end
     end
@@ -556,9 +588,11 @@ data.reveal_cell = function(self, cellx, celly, show_explosion)
         self:uncover_cells(cellx, celly)
         self.state[index] = Cell.uncover
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+        self.number_tilemap:insert_tile(px, py)
     elseif value < 0 then -- cell is bomb
         if show_explosion then
             self.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
+            self.number_tilemap:insert_tile(px, py)
         end
         return -1
     else
@@ -688,7 +722,8 @@ local function mousereleased(x, y, button, istouch, presses)
                 data.number_tilemap:insert_tile(px, py)
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
                 ---
-            elseif state == Cell.press or state == Cell.cover then
+                -- elseif state == Cell.press or state == Cell.cover then
+            elseif data.state[index] == Cell.cover then
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
                 ---
                 -- elseif state == Cell.susp_pressed then
@@ -703,6 +738,7 @@ local function mousereleased(x, y, button, istouch, presses)
                 data:reveal_game()
 
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
+                data.number_tilemap:insert_tile(px, py)
                 ---
             elseif state ~= Cell.flag then
                 -- data.state[index] = Cell.uncover
