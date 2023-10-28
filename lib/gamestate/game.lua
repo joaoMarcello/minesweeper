@@ -78,9 +78,9 @@ local tile = _G.TILE
 --============================================================================
 ---@class Gamestate.Game.Data
 local data = {
-    get_mouse_position = function(cam)
-        return State:get_mouse_position(cam)
-    end
+    -- get_mouse_position = function(cam)
+    --     return State:get_mouse_position(cam)
+    -- end
 }
 
 local rand, floor = math.random, math.floor
@@ -163,7 +163,7 @@ data.build_board = function(self, exception)
             -- local id =
             local state = tile_to_state[self.tilemap:get_id(px, py)]
 
-            if state ~= Cell.flag and state ~= Cell.suspicious then
+            if state ~= Cell.flag then
                 self.tilemap:insert_tile(tile * x, tile * y, state_to_tile[Cell.cover])
             end
 
@@ -217,7 +217,7 @@ local function init(args)
         end
     end
 
-    local mx, my = data.get_mouse_position()
+    local mx, my = State:get_mouse_position() --data.get_mouse_position()
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
@@ -579,7 +579,7 @@ end
 local function mousepressed(x, y, button, istouch, presses)
     if istouch then return end
 
-    local mx, my = data.get_mouse_position()
+    local mx, my = State:get_mouse_position() --data.get_mouse_position()
     local is_inside_board = position_is_inside_board(mx, my)
 
     if not is_inside_board or button > 2 then return end
@@ -611,7 +611,7 @@ end
 local function mousereleased(x, y, button, istouch, presses)
     if istouch then return end
 
-    local mx, my = data.get_mouse_position()
+    local mx, my = State:get_mouse_position() --data.get_mouse_position()
     local is_inside_board = position_is_inside_board(mx, my)
 
     local px = data.cell_x * tile
@@ -700,13 +700,21 @@ local function mousemoved(x, y, dx, dy, istouch)
 
     local reset_spritebatch = false
 
-    local mx, my = data.get_mouse_position()
+    local cam = State.camera
+    if dx and dy and mouse.isDown(1) then
+        local sx = State.screen_w / love.graphics.getWidth()
+        local sy = State.screen_h / love.graphics.getHeight()
+        data.dx = dx
+        cam:move(-dx * sx, -dy * sy)
+    end
+
+    local mx, my = State:get_mouse_position() --data.get_mouse_position()
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
     local is_inside_board = position_is_inside_board(mx, my)
 
-    data.last_state = tile_to_state[data.tilemap:get_id(data.last_cell_x * tile, data.last_cell_y * tile)]
+    -- data.last_state = tile_to_state[data.tilemap:get_id(data.last_cell_x * tile, data.last_cell_y * tile)]
 
     if data.chording then
         if not is_inside_board then
@@ -729,14 +737,12 @@ local function mousemoved(x, y, dx, dy, istouch)
         local id = data.tilemap:get_id(px, py)
         local last_state = tile_to_state[id]
 
-        if (last_state == Cell.press or last_state == Cell.susp_pressed)
+        if (last_state == Cell.press)
             or (mouse.isDown(1) or mouse.isDown(2))
         then
             reset_spritebatch = data:unpress_cell(data.last_cell_x, data.last_cell_y) or reset_spritebatch
 
-            do
-                reset_spritebatch = data:press_cell(data.cell_x, data.cell_y) or reset_spritebatch
-            end
+            reset_spritebatch = data:press_cell(data.cell_x, data.cell_y) or reset_spritebatch
         end
     end
 
@@ -812,29 +818,29 @@ local layer_main = {
         -- local mx, my = data.get_mouse_position(cam)
         -- love.graphics.circle("fill", mx, my, 1)
 
-        local px = 0
-        local py = 0
-        for y = 0, data.height - 1 do
-            for x = 0, data.width - 1 do
-                local index = (y * data.width) + x
-                local cell = data.grid[index]
+        -- local px = 0
+        -- local py = 0
+        -- for y = 0, data.height - 1 do
+        --     for x = 0, data.width - 1 do
+        --         local index = (y * data.width) + x
+        --         local cell = data.grid[index]
 
-                if cell == Cell.bomb then
-                    love.graphics.setColor(0, 0, 0, 0.12)
-                    love.graphics.circle("fill", px + 8, py + 8, 4)
-                else
-                    if cell and cell > 0 then
-                        font:push()
-                        font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
-                        font:print(tostring(cell), tile * x + 4, tile * y + 4)
-                        font:pop()
-                    end
-                end
-                px = px + tile
-            end
-            py = py + tile
-            px = 0
-        end
+        --         if cell == Cell.bomb then
+        --             love.graphics.setColor(0, 0, 0, 0.12)
+        --             love.graphics.circle("fill", px + 8, py + 8, 4)
+        --         else
+        --             if cell and cell > 0 then
+        --                 font:push()
+        --                 font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
+        --                 font:print(tostring(cell), tile * x + 4, tile * y + 4)
+        --                 font:pop()
+        --             end
+        --         end
+        --         px = px + tile
+        --     end
+        --     py = py + tile
+        --     px = 0
+        -- end
 
         -- py = 10
         -- for i = 1, data.mines do
@@ -866,6 +872,7 @@ local layer_gui = {
         love.graphics.rectangle("fill", 0, 0, 100, 32)
         local font = JM.Font.current
         font:print("Continue " .. tostring(data.continue), 20, 90)
+        font:print(tostring(data.dx), 20, 150)
     end
 }
 
