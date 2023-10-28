@@ -44,6 +44,14 @@ local GameMode = {
     custom = 4,
 }
 
+---@enum GameState.Game.ClickState
+local ClickState = {
+    reveal = 1,
+    flag = 2,
+    suspicious = 3,
+    chording = 4,
+}
+
 local Cell = {
     bomb = -1,
     flag = -2,
@@ -253,9 +261,9 @@ end
 
 ---@param self Gamestate.Game.Data
 data.reveal_game = function(self)
-    local r = self.continue > 0
-    local skip_flags = false
-    local skip_mines = r
+    local has_continue = self.continue > 0
+    -- local skip_flags = false
+    local skip_mines = has_continue
 
     for y = 0, self.height - 1 do
         for x = 0, self.width - 1 do
@@ -275,7 +283,11 @@ data.reveal_game = function(self)
                 end
                 ---
             else
-                if tile_to_state[id] == Cell.flag and not skip_flags then
+                local is_neighbor = math.abs(self.cell_x - x) <= 1 and math.abs(data.cell_y - y) <= 1
+
+                if tile_to_state[id] == Cell.flag
+                    and (is_neighbor or not has_continue)
+                then
                     self.tilemap:insert_tile(px, py, state_to_tile[Cell.wrong])
                 end
             end
@@ -593,6 +605,7 @@ local function mousepressed(x, y, button, istouch, presses)
     if (button == 1 and mouse.isDown(2))
         or (button == 2 and mouse.isDown(1))
         or (data.state[index] == Cell.uncover and button == 2 and state ~= Cell.flag)
+        or data.chording
     then
         data.chording = true
         data:press_neighbor(data.cell_x, data.cell_y)
@@ -755,11 +768,15 @@ local function mousemoved(x, y, dx, dy, istouch)
 end
 
 local function touchpressed(id, x, y, dx, dy, pressure)
-
+    mousepressed(x, y, 1)
 end
 
 local function touchreleased(id, x, y, dx, dy, pressure)
+    mousereleased(x, y, 1)
+end
 
+local function touchmoved(id, x, y, dx, dy, pressure)
+    mousemoved(x, y, dx, dy)
 end
 
 local function gamepadpressed(joystick, button)
@@ -813,33 +830,38 @@ local layer_main = {
         data.tilemap:draw(cam)
         data.number_tilemap:draw(cam)
 
+        local px = data.cell_x * tile
+        local py = data.cell_y * tile
+        lgx.setColor(1, 0, 0, 0.7)
+        lgx.rectangle("line", px, py, tile, tile)
+
         -- love.graphics.setColor(1, 0, 0, 0.3)
         -- local mx, my = data.get_mouse_position(cam)
         -- love.graphics.circle("fill", mx, my, 1)
 
-        -- local px = 0
-        -- local py = 0
-        -- for y = 0, data.height - 1 do
-        --     for x = 0, data.width - 1 do
-        --         local index = (y * data.width) + x
-        --         local cell = data.grid[index]
+        local px = 0
+        local py = 0
+        for y = 0, data.height - 1 do
+            for x = 0, data.width - 1 do
+                local index = (y * data.width) + x
+                local cell = data.grid[index]
 
-        --         if cell == Cell.bomb then
-        --             love.graphics.setColor(0, 0, 0, 0.12)
-        --             love.graphics.circle("fill", px + 8, py + 8, 4)
-        --         else
-        --             if cell and cell > 0 then
-        --                 font:push()
-        --                 font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
-        --                 font:print(tostring(cell), tile * x + 4, tile * y + 4)
-        --                 font:pop()
-        --             end
-        --         end
-        --         px = px + tile
-        --     end
-        --     py = py + tile
-        --     px = 0
-        -- end
+                if cell == Cell.bomb then
+                    love.graphics.setColor(0, 0, 0, 0.12)
+                    love.graphics.circle("fill", px + 8, py + 8, 4)
+                else
+                    if cell and cell > 0 then
+                        font:push()
+                        font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
+                        font:print(tostring(cell), tile * x + 4, tile * y + 4)
+                        font:pop()
+                    end
+                end
+                px = px + tile
+            end
+            py = py + tile
+            px = 0
+        end
 
         -- py = 10
         -- for i = 1, data.mines do
