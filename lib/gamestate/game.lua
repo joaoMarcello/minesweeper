@@ -15,7 +15,7 @@ local State = JM.Scene:new {
     x = nil, --100,
     y = nil, --75,
     w = nil, --love.graphics.getWidth() - 200,
-    h = nil, -- love.graphics.getHeight() - 60 - 75,
+    h = nil, --love.graphics.getHeight() - 60 - 75,
     canvas_w = _G.SCREEN_WIDTH or 320,
     canvas_h = _G.SCREEN_HEIGHT or 180,
     tile = _G.TILE,
@@ -720,7 +720,7 @@ local function mousemoved(x, y, dx, dy, istouch)
 
     local cam = State.camera
 
-    if dx and dy and mouse.isDown(1) then
+    if dx and dy and mouse.isDown(1) and not data.chording then
         local ds = math.min((State.w - State.x) / State.screen_w,
             (State.h - State.y) / State.screen_h
         )
@@ -781,7 +781,7 @@ local function wheelmoved(x, y)
     -- if is_inside_board then
     do
         local zoom = 0
-        local speed = 1
+        local speed = 1.5
         local dt = love.timer.getDelta()
 
         if y > 0 then
@@ -813,6 +813,12 @@ end
 
 local function gamepadreleased(joystick, button)
 
+end
+
+local function resize(w, h)
+    State.w = w
+    State.h = h
+    State:calc_canvas_scale()
 end
 
 local function update(dt)
@@ -867,29 +873,29 @@ local layer_main = {
         -- local mx, my = data.get_mouse_position(cam)
         -- love.graphics.circle("fill", mx, my, 1)
 
-        local px = 0
-        local py = 0
-        for y = 0, data.height - 1 do
-            for x = 0, data.width - 1 do
-                local index = (y * data.width) + x
-                local cell = data.grid[index]
+        -- local px = 0
+        -- local py = 0
+        -- for y = 0, data.height - 1 do
+        --     for x = 0, data.width - 1 do
+        --         local index = (y * data.width) + x
+        --         local cell = data.grid[index]
 
-                if cell == Cell.bomb then
-                    love.graphics.setColor(0, 0, 0, 0.12)
-                    love.graphics.circle("fill", px + 8, py + 8, 4)
-                else
-                    if cell and cell > 0 then
-                        font:push()
-                        font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
-                        font:print(tostring(cell), tile * x + 4, tile * y + 4)
-                        font:pop()
-                    end
-                end
-                px = px + tile
-            end
-            py = py + tile
-            px = 0
-        end
+        --         if cell == Cell.bomb then
+        --             love.graphics.setColor(0, 0, 0, 0.12)
+        --             love.graphics.circle("fill", px + 8, py + 8, 4)
+        --         else
+        --             if cell and cell > 0 then
+        --                 font:push()
+        --                 font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
+        --                 font:print(tostring(cell), tile * x + 4, tile * y + 4)
+        --                 font:pop()
+        --             end
+        --         end
+        --         px = px + tile
+        --     end
+        --     py = py + tile
+        --     px = 0
+        -- end
 
         -- py = 10
         -- for i = 1, data.mines do
@@ -950,6 +956,7 @@ State:implements {
     touchreleased = touchreleased,
     gamepadpressed = gamepadpressed,
     gamepadreleased = gamepadreleased,
+    resize = resize,
     update = update,
     layers = layers,
 }
