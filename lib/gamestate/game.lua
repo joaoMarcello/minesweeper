@@ -12,10 +12,10 @@ end
 
 ---@class Gamestate.Game : JM.Scene
 local State = JM.Scene:new {
-    x = nil,
-    y = nil,
-    w = nil,
-    h = nil,
+    x = nil, --100,
+    y = nil, --75,
+    w = nil, --love.graphics.getWidth() - 200,
+    h = nil, -- love.graphics.getHeight() - 60 - 75,
     canvas_w = _G.SCREEN_WIDTH or 320,
     canvas_h = _G.SCREEN_HEIGHT or 180,
     tile = _G.TILE,
@@ -26,6 +26,7 @@ local State = JM.Scene:new {
     bound_right = 1366,
     bound_bottom = 1366,
     cam_scale = 1,
+    show_border = true,
 }
 
 State:add_camera {
@@ -77,14 +78,11 @@ local tile = _G.TILE
 
 --============================================================================
 ---@class Gamestate.Game.Data
-local data = {
-    -- get_mouse_position = function(cam)
-    --     return State:get_mouse_position(cam)
-    -- end
-}
+local data = {}
 
 local rand, floor = math.random, math.floor
 local mouse = love.mouse
+local lgx = love.graphics
 
 local shuffle = function(t, n)
     local N = n or #t
@@ -702,10 +700,11 @@ local function mousemoved(x, y, dx, dy, istouch)
 
     local cam = State.camera
     if dx and dy and mouse.isDown(1) then
-        local sx = State.screen_w / love.graphics.getWidth()
-        local sy = State.screen_h / love.graphics.getHeight()
+        local ds = math.min((State.w - State.x) / State.screen_w,
+            (State.h - State.y) / State.screen_h
+        )
         data.dx = dx
-        cam:move(-dx * sx, -dy * sy)
+        cam:move(-dx / ds, -dy / ds)
     end
 
     local mx, my = State:get_mouse_position() --data.get_mouse_position()
