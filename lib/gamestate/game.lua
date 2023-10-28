@@ -213,6 +213,7 @@ local meta_state = { __index = function() return Cell.cover end }
 
 local function init(args)
     data.tilemap = TileMap:new(generic, "data/img/tilemap.png", 16)
+    data.number_tilemap = TileMap:new(generic, "data/img/number_tilemap.png", 16)
 
     data.height = 8 --+ 4
     data.width = 8  --+ 4
@@ -284,7 +285,7 @@ data.reveal_game = function(self)
     local skip_flags = false
     local skip_mines = r
 
-    local xpx, xpy, xindex
+    -- local xpx, xpy, xindex
 
     for y = 0, self.height - 1 do
         for x = 0, self.width - 1 do
@@ -302,9 +303,9 @@ data.reveal_game = function(self)
                 then
                     self.tilemap:insert_tile(px, py, state_to_tile[Cell.bomb])
                 end
-                xpx = px
-                xpy = py
-                xindex = index
+                -- xpx = px
+                -- xpy = py
+                -- xindex = index
                 ---
             else
                 if tile_to_state[id] == Cell.flag and not skip_flags then
@@ -313,7 +314,7 @@ data.reveal_game = function(self)
             end
         end
     end
-    return xpx, xpy, xindex
+    -- return xpx, xpy, xindex
 end
 
 
@@ -324,9 +325,9 @@ data.uncover_cells = function(self, cellx, celly)
 
     local px = cellx * tile
     local py = celly * tile
-    local id = data.tilemap:get_id(px, py)
+    local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
-    local index = celly * data.width + cellx
+    local index = celly * self.width + cellx
     local value = self.grid[index]
 
     if self.state[index] == Cell.uncover
@@ -338,7 +339,7 @@ data.uncover_cells = function(self, cellx, celly)
         self.state[index] = Cell.uncover
 
         if state ~= Cell.flag then
-            data.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+            self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
         end
         -- data:reveal_cell(cellx, celly)
 
@@ -352,8 +353,10 @@ data.uncover_cells = function(self, cellx, celly)
         self:uncover_cells(cellx + 1, celly + 1)
         ---
     elseif value > 0 and state ~= Cell.flag then
-        data.state[index] = Cell.uncover
-        data.tilemap:insert_tile(px, py, 6 + value)
+        self.state[index] = Cell.uncover
+        -- data.tilemap:insert_tile(px, py, 6 + value)
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+        self.number_tilemap:insert_tile(px, py, value)
     end
 
     return true
@@ -361,7 +364,7 @@ end
 
 ---@param self Gamestate.Game.Data
 data.press_cell = function(self, cellx, celly, press_uncover)
-    -- press_uncover = true
+    press_uncover = false
     if cellx < 0 or celly < 0 then return false end
     if cellx > self.width - 1 or celly > self.height - 1 then return false end
 
@@ -372,18 +375,26 @@ data.press_cell = function(self, cellx, celly, press_uncover)
     local index = celly * self.width + cellx
     local value = self.grid[index]
 
-    if state == Cell.cover and state ~= Cell.press then
+    -- if state == Cell.cover and state ~= Cell.press then
+    if self.state[index] == Cell.cover and state ~= Cell.flag
+        and state ~= Cell.explosion
+    then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
-        ---
-    elseif state == Cell.suspicious and state ~= Cell.susp_pressed then
-        self.tilemap:insert_tile(px, py, state_to_tile[Cell.susp_pressed])
-        ---
-    elseif state == Cell.uncover and press_uncover then
-        if value > 0 then
-            self.tilemap:insert_tile(px, py, 17 + value)
-        elseif value == 0 then
-            self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
+
+        if self.number_tilemap:get_id(px, py) == 9 then
+            self.number_tilemap:insert_tile(px, py, 10)
         end
+        ---
+        -- elseif state == Cell.suspicious and state ~= Cell.susp_pressed then
+        --     self.tilemap:insert_tile(px, py, state_to_tile[Cell.susp_pressed])
+        --     ---
+    elseif self.state[index] == Cell.uncover and press_uncover then
+        -- if value > 0 then
+        --     self.tilemap:insert_tile(px, py, 17 + value)
+        -- elseif value == 0 then
+        --     self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
+        -- end
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
     else
         return false
     end
@@ -392,7 +403,8 @@ end
 
 ---@param self Gamestate.Game.Data
 data.unpress_cell = function(self, cellx, celly, unpress_uncover)
-    -- unpress_uncover
+    unpress_uncover = false
+
     if cellx < 0 or celly < 0 then return false end
     if cellx > self.width - 1 or celly > self.height - 1 then return false end
 
@@ -403,20 +415,26 @@ data.unpress_cell = function(self, cellx, celly, unpress_uncover)
     local index = celly * self.width + cellx
     local value = self.grid[index]
 
-    if state == Cell.press and state ~= Cell.cover
-        and self.state[index] ~= Cell.uncover
-    then
+    -- if state == Cell.press and state ~= Cell.cover
+    --     and self.state[index] ~= Cell.uncover
+    -- then
+    if self.state[index] == Cell.cover and state ~= Cell.flag and state ~= Cell.explosion then
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-        ---
-    elseif state == Cell.susp_pressed and state ~= Cell.suspicious then
-        self.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
-        ---
-    elseif self.state[index] == Cell.uncover and unpress_uncover then
-        if value > 0 then
-            self.tilemap:insert_tile(px, py, 6 + value)
-        elseif value == 0 then
-            self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+
+        if self.number_tilemap:get_id(px, py) == 10 then
+            self.number_tilemap:insert_tile(px, py, 9)
         end
+        ---
+        -- elseif state == Cell.susp_pressed and state ~= Cell.suspicious then
+        --     self.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+        --     ---
+    elseif self.state[index] == Cell.uncover and unpress_uncover then
+        -- if value > 0 then
+        --     self.tilemap:insert_tile(px, py, 6 + value)
+        -- elseif value == 0 then
+        --     self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+        -- end
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
     else
         return false
     end
@@ -523,21 +541,24 @@ data.reveal_cell = function(self, cellx, celly, show_explosion)
     local py = celly * tile
     local id = self.tilemap:get_id(px, py)
     local state = id and tile_to_state[id]
-    local index = celly * data.width + cellx
+    local index = celly * self.width + cellx
     local value = self.grid[index]
 
     if state == Cell.uncover or state == Cell.flag then return false end
 
     if value > 0 then
-        self.tilemap:insert_tile(px, py, value + 6)
-        data.state[index] = Cell.uncover
+        -- self.tilemap:insert_tile(px, py, value + 6)
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+        self.number_tilemap:insert_tile(px, py, value)
+        self.state[index] = Cell.uncover
+        ---
     elseif value == 0 then
         self:uncover_cells(cellx, celly)
-        data.state[index] = Cell.uncover
-        data.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
+        self.state[index] = Cell.uncover
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
     elseif value < 0 then -- cell is bomb
         if show_explosion then
-            data.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
+            self.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
         end
         return -1
     else
@@ -555,11 +576,11 @@ data.verify_chording = function(self, cellx, celly)
     local py = celly * tile
     local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
-    local index = celly * data.width + cellx
+    local index = celly * self.width + cellx
     local value = self.grid[index]
 
     if value > 0 and state ~= Cell.cover then
-        local count = data:count_neighbor_flags(cellx, celly)
+        local count = self:count_neighbor_flags(cellx, celly)
         -- data.count_mines = count
         local r1, r2, r3, r4, r5, r6, r7, r8
 
@@ -654,19 +675,25 @@ local function mousereleased(x, y, button, istouch, presses)
     elseif is_inside_board and state ~= Cell.uncover and allow_click then
         if button == 2 then
             if state == Cell.flag then
-                data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+                -- data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
+                data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+                data.number_tilemap:insert_tile(px, py, 9)
                 data.state[index] = Cell.cover
                 ---
-            elseif state == Cell.suspicious then
+                -- elseif state == Cell.suspicious then
+                --     data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+                --     data.state[index] = Cell.cover
+            elseif data.number_tilemap:get_id(px, py) == 10 then
+                -- SUSPICIOUS
+                data.number_tilemap:insert_tile(px, py)
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                data.state[index] = Cell.cover
                 ---
             elseif state == Cell.press or state == Cell.cover then
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
                 ---
-            elseif state == Cell.susp_pressed then
-                data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                ---
+                -- elseif state == Cell.susp_pressed then
+                --     data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+                --     ---
             end
             reset_spritebatch = true
 
@@ -828,34 +855,35 @@ local layer_main = {
         local font = JM.Font.current
 
         data.tilemap:draw(cam)
+        data.number_tilemap:draw(cam)
 
-        love.graphics.setColor(1, 0, 0, 0.3)
-        local mx, my = data.get_mouse_position(cam)
-        love.graphics.circle("fill", mx, my, 1)
+        -- love.graphics.setColor(1, 0, 0, 0.3)
+        -- local mx, my = data.get_mouse_position(cam)
+        -- love.graphics.circle("fill", mx, my, 1)
 
-        -- local px = 0
-        -- local py = 0
-        -- for y = 0, data.height - 1 do
-        --     for x = 0, data.width - 1 do
-        --         local index = (y * data.width) + x
-        --         local cell = data.grid[index]
+        local px = 0
+        local py = 0
+        for y = 0, data.height - 1 do
+            for x = 0, data.width - 1 do
+                local index = (y * data.width) + x
+                local cell = data.grid[index]
 
-        --         if cell == Cell.bomb then
-        --             love.graphics.setColor(0, 0, 0, 0.12)
-        --             love.graphics.circle("fill", px + 8, py + 8, 4)
-        --         else
-        --             if cell and cell > 0 then
-        --                 font:push()
-        --                 font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
-        --                 font:print(tostring(cell), tile * x + 4, tile * y + 4)
-        --                 font:pop()
-        --             end
-        --         end
-        --         px = px + tile
-        --     end
-        --     py = py + tile
-        --     px = 0
-        -- end
+                if cell == Cell.bomb then
+                    love.graphics.setColor(0, 0, 0, 0.12)
+                    love.graphics.circle("fill", px + 8, py + 8, 4)
+                else
+                    if cell and cell > 0 then
+                        font:push()
+                        font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
+                        font:print(tostring(cell), tile * x + 4, tile * y + 4)
+                        font:pop()
+                    end
+                end
+                px = px + tile
+            end
+            py = py + tile
+            px = 0
+        end
 
         -- py = 10
         -- for i = 1, data.mines do
