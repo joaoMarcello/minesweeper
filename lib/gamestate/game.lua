@@ -36,7 +36,7 @@ local cam2 = State:get_camera("cam2")
 cam2:set_viewport(200, nil, State.screen_w / 2, State.screen_h)
 
 ---@enum Gamestate.Game.Modes
-local Mode = {
+local GameMode = {
     beginner = 1,
     intermediate = 2,
     expert = 3,
@@ -51,9 +51,6 @@ local Cell = {
     uncover = -6,
     explosion = -7,
     wrong = -9,
-    -- stand = -4,
-    -- suspicious = -8,
-    -- susp_pressed = -10,
 }
 
 local tile_to_state = {
@@ -64,27 +61,6 @@ local tile_to_state = {
     [5] = Cell.bomb,
     [6] = Cell.explosion,
     [7] = Cell.wrong,
-    -- Revealed numbers
-    -- [7] = Cell.uncover,
-    -- [8] = Cell.uncover,
-    -- [9] = Cell.uncover,
-    -- [10] = Cell.uncover,
-    -- [11] = Cell.uncover,
-    -- [12] = Cell.uncover,
-    -- [13] = Cell.uncover,
-    -- [14] = Cell.uncover,
-    ---
-    -- [15] = Cell.suspicious,
-    -- [17] = Cell.susp_pressed,
-    -- -- pressed numbers
-    -- [18] = Cell.uncover,
-    -- [19] = Cell.uncover,
-    -- [20] = Cell.uncover,
-    -- [21] = Cell.uncover,
-    -- [22] = Cell.uncover,
-    -- [23] = Cell.uncover,
-    -- [24] = Cell.uncover,
-    -- [25] = Cell.uncover,
 }
 
 local state_to_tile = {
@@ -95,8 +71,6 @@ local state_to_tile = {
     [Cell.bomb] = 5,
     [Cell.explosion] = 6,
     [Cell.wrong] = 7,
-    -- [Cell.suspicious] = 15,
-    -- [Cell.susp_pressed] = 17,
 }
 
 local tile = _G.TILE
@@ -285,8 +259,6 @@ data.reveal_game = function(self)
     local skip_flags = false
     local skip_mines = r
 
-    -- local xpx, xpy, xindex
-
     for y = 0, self.height - 1 do
         for x = 0, self.width - 1 do
             local px = x * tile
@@ -303,9 +275,6 @@ data.reveal_game = function(self)
                 then
                     self.tilemap:insert_tile(px, py, state_to_tile[Cell.bomb])
                 end
-                -- xpx = px
-                -- xpy = py
-                -- xindex = index
                 ---
             else
                 if tile_to_state[id] == Cell.flag and not skip_flags then
@@ -314,7 +283,6 @@ data.reveal_game = function(self)
             end
         end
     end
-    -- return xpx, xpy, xindex
 end
 
 
@@ -355,7 +323,7 @@ data.uncover_cells = function(self, cellx, celly)
         ---
     elseif value > 0 and state ~= Cell.flag then
         self.state[index] = Cell.uncover
-        -- data.tilemap:insert_tile(px, py, 6 + value)
+
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
         self.number_tilemap:insert_tile(px, py, value)
     end
@@ -389,9 +357,7 @@ data.press_cell = function(self, cellx, celly, press_uncover)
     local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
     local index = celly * self.width + cellx
-    -- local value = self.grid[index]
 
-    -- if state == Cell.cover and state ~= Cell.press then
     if self.state[index] == Cell.cover
         and state ~= Cell.flag
         and state ~= Cell.explosion
@@ -408,15 +374,7 @@ data.press_cell = function(self, cellx, celly, press_uncover)
             self.number_tilemap:insert_tile(px, py, 10)
         end
         ---
-        -- elseif state == Cell.suspicious and state ~= Cell.susp_pressed then
-        --     self.tilemap:insert_tile(px, py, state_to_tile[Cell.susp_pressed])
-        --     ---
     elseif self.state[index] == Cell.uncover and press_uncover then
-        -- if value > 0 then
-        --     self.tilemap:insert_tile(px, py, 17 + value)
-        -- elseif value == 0 then
-        --     self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
-        -- end
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.press])
     else
         return false
@@ -436,11 +394,8 @@ data.unpress_cell = function(self, cellx, celly, unpress_uncover)
     local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
     local index = celly * self.width + cellx
-    local value = self.grid[index]
+    -- local value = self.grid[index]
 
-    -- if state == Cell.press and state ~= Cell.cover
-    --     and self.state[index] ~= Cell.uncover
-    -- then
     if self.state[index] == Cell.cover
         and state ~= Cell.flag
         and state ~= Cell.explosion
@@ -448,22 +403,13 @@ data.unpress_cell = function(self, cellx, celly, unpress_uncover)
         neighbor_is_uncover(self, cellx, celly + 1, 1)
         -- neighbor_is_uncover(self, cellx + 1, celly, 1)
 
-
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
 
         if self.number_tilemap:get_id(px, py) == 10 then
             self.number_tilemap:insert_tile(px, py, 9)
         end
         ---
-        -- elseif state == Cell.susp_pressed and state ~= Cell.suspicious then
-        --     self.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
-        --     ---
     elseif self.state[index] == Cell.uncover and unpress_uncover then
-        -- if value > 0 then
-        --     self.tilemap:insert_tile(px, py, 6 + value)
-        -- elseif value == 0 then
-        --     self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
-        -- end
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
     else
         return false
@@ -483,10 +429,8 @@ data.revive = function(self)
 
             if state == Cell.wrong then
                 self:reveal_cell(x, y)
-                -- self.number_tilemap:insert_tile(px, py)
             elseif state == Cell.explosion then
                 self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
-                -- self.number_tilemap:insert_tile(px, py)
             end
         end
     end
@@ -541,10 +485,8 @@ local function is_flag(cellx, celly)
     local py = celly * tile
     local id = data.tilemap:get_id(px, py)
     local state = id and tile_to_state[id]
-    -- local index = celly * data.width + cellx
 
     return (state == Cell.flag) and 1 or 0
-    -- return (data.grid[index] < 0 or state == Cell.flag) and 1 or 0
 end
 
 ---@param self Gamestate.Game.Data
@@ -579,7 +521,6 @@ data.reveal_cell = function(self, cellx, celly, show_explosion)
     if state == Cell.uncover or state == Cell.flag then return false end
 
     if value > 0 then
-        -- self.tilemap:insert_tile(px, py, value + 6)
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
         self.number_tilemap:insert_tile(px, py, value)
         self.state[index] = Cell.uncover
@@ -615,7 +556,6 @@ data.verify_chording = function(self, cellx, celly)
 
     if value > 0 and state ~= Cell.cover then
         local count = self:count_neighbor_flags(cellx, celly)
-        -- data.count_mines = count
         local r1, r2, r3, r4, r5, r6, r7, r8
 
         if count == value then
@@ -651,10 +591,6 @@ local function mousepressed(x, y, button, istouch, presses)
     local id = data.tilemap:get_id(px, py)
     local state = tile_to_state[id]
     local index = data.cell_y * data.width + data.cell_x
-    local reset_spritebatch = false
-    local allow_click = data.time_click < 0.5
-        and data.time_release <= 0.0
-        and data.pressing
 
     if (button == 1 and mouse.isDown(2))
         or (button == 2 and mouse.isDown(1))
@@ -709,26 +645,18 @@ local function mousereleased(x, y, button, istouch, presses)
     elseif is_inside_board and state ~= Cell.uncover and allow_click then
         if button == 2 then
             if state == Cell.flag then
-                -- data.tilemap:insert_tile(px, py, state_to_tile[Cell.suspicious])
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
                 data.number_tilemap:insert_tile(px, py, 9)
                 data.state[index] = Cell.cover
                 ---
-                -- elseif state == Cell.suspicious then
-                --     data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                --     data.state[index] = Cell.cover
             elseif data.number_tilemap:get_id(px, py) == 10 then
                 -- SUSPICIOUS
                 data.number_tilemap:insert_tile(px, py)
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
                 ---
-                -- elseif state == Cell.press or state == Cell.cover then
             elseif data.state[index] == Cell.cover then
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
                 ---
-                -- elseif state == Cell.susp_pressed then
-                --     data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                --     ---
             end
             reset_spritebatch = true
 
@@ -741,7 +669,6 @@ local function mousereleased(x, y, button, istouch, presses)
                 data.number_tilemap:insert_tile(px, py)
                 ---
             elseif state ~= Cell.flag then
-                -- data.state[index] = Cell.uncover
                 data:unpress_cell(data.cell_x, data.cell_y)
                 data:uncover_cells(data.cell_x, data.cell_y)
             end
@@ -756,10 +683,6 @@ local function mousereleased(x, y, button, istouch, presses)
         ---
         reset_spritebatch = data:unpress_cell(data.cell_x, data.cell_y)
         reset_spritebatch = data:unpress_cell(data.last_cell_x, data.last_cell_y) or reset_spritebatch
-
-        -- if data.chore then
-        --     data.chore = false
-        -- end
     end
 
     if data.pressing and button <= 2 then
@@ -786,15 +709,10 @@ local function mousemoved(x, y, dx, dy, istouch)
     data.last_state = tile_to_state[data.tilemap:get_id(data.last_cell_x * tile, data.last_cell_y * tile)]
 
     if data.chording then
-        -- if data.cell_x ~= data.last_cell_x
-        --     and data.cell_y ~= data.last_cell_y
-        -- then
         if not is_inside_board then
             data:unpress_neighbor(data.last_cell_x, data.last_cell_y)
             data:unpress_neighbor(data.cell_x, data.cell_y)
             reset_spritebatch = true
-            -- data.chore = false
-            -- data.pressing = false
         else
             data:unpress_neighbor(data.last_cell_x, data.last_cell_y)
             data:press_neighbor(data.cell_x, data.cell_y)
@@ -803,9 +721,6 @@ local function mousemoved(x, y, dx, dy, istouch)
     elseif not is_inside_board then
         reset_spritebatch = data:unpress_cell(data.last_cell_x, data.last_cell_y) or reset_spritebatch
 
-        if data.chording then
-            -- data.chore = false
-        end
         ---
     elseif data.pressing then
         local px = data.last_cell_x * tile
