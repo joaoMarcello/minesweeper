@@ -3,6 +3,7 @@ local lgx = love.graphics
 local JM = require "jm-love2d-package.init"
 local SceneManager = JM.SceneManager
 
+local fullscreen
 function love.load()
     math.randomseed(os.time())
     lgx.setBackgroundColor(0, 0, 0, 1)
@@ -29,6 +30,8 @@ function love.load()
     _G.PLAY_SONG = function(name)
         JM.Sound:play_song(name)
     end
+
+    fullscreen = love.window.getFullscreen()
 end
 
 function love.textinput(t)
@@ -37,6 +40,7 @@ function love.textinput(t)
 end
 
 -- local getKeyFromScancode = love.keyboard.getKeyFromScancode
+
 function love.keypressed(key, scancode, isrepeat)
     local scene = SceneManager.scene
     key = scancode --getKeyFromScancode(key)
@@ -47,6 +51,10 @@ function love.keypressed(key, scancode, isrepeat)
         collectgarbage()
         love.event.quit()
         return
+    elseif key == "f11" or (key == "f" and love.keyboard.isDown("lctrl")) then
+        fullscreen = not fullscreen
+        love.window.setFullscreen(fullscreen, "desktop")
+        scene:resize(love.graphics.getWidth(), love.graphics.getHeight())
     end
 
     if scene then
