@@ -201,9 +201,9 @@ local function init(args)
     data.full_tileset = data.tilemap.tile_set
     data.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
-    data.height = 300 --+ 4
-    data.width = 300  --+ 4
-    data.mines = 5000 --Utils:round(300 * 300 * 0.3) --28
+    data.height = 16                        --+ 4
+    data.width = 16                         --+ 4
+    data.mines = Utils:round(16 * 16 * 0.2) --Utils:round(300 * 300 * 0.3) --28
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -226,7 +226,7 @@ local function init(args)
     --     Utils:clamp(data.width * tile * 1.5, State.screen_w, math.huge),
     --     -(data.width * tile) / 2,
     -- State.screen_h + (data.height * tile) / 2)
-    local off = Utils:round(data.width / 8 * 10)
+    local off = Utils:round(data.width / 8 * 15)
     cam:set_bounds(-tile * off,
         data.width * tile + tile * off,
         -tile * off,
@@ -318,6 +318,11 @@ data.reveal_game = function(self)
     end
 end
 
+-- local cx, cy
+-- local function foo()
+--     data:uncover_cells(cx, cy)
+-- end
+
 ---@param self Gamestate.Game.Data
 data.uncover_cells = function(self, cellx, celly)
     if cellx < 0 or celly < 0 then return false end
@@ -355,14 +360,15 @@ data.uncover_cells = function(self, cellx, celly)
         -- self:uncover_cells(cellx, celly + 1)
         -- self:uncover_cells(cellx + 1, celly + 1)
 
-        self:uncover_cells(cellx, celly - 1)
-        self:uncover_cells(cellx - 1, celly - 1)
-        self:uncover_cells(cellx + 1, celly - 1)
         self:uncover_cells(cellx - 1, celly)
-        self:uncover_cells(cellx - 1, celly + 1)
+        self:uncover_cells(cellx - 1, celly - 1)
+        self:uncover_cells(cellx, celly - 1)
         self:uncover_cells(cellx + 1, celly)
+        self:uncover_cells(cellx - 1, celly + 1)
         self:uncover_cells(cellx, celly + 1)
+        self:uncover_cells(cellx + 1, celly - 1)
         self:uncover_cells(cellx + 1, celly + 1)
+
         ---
     elseif value > 0 and state ~= Cell.flag then
         self.state[index] = Cell.uncover
@@ -718,6 +724,19 @@ local function mousereleased(x, y, button, istouch, presses)
             elseif state ~= Cell.flag then
                 data:unpress_cell(data.cell_x, data.cell_y)
                 local r = pcall(data.uncover_cells_protected)
+
+                if not r then
+                    local cx, cy
+                    local func = function()
+                        data:unpress_cell(cx, cy)
+                    end
+                    for i = 1, 50 do
+                        local index = data.last_index_uncover
+                        cy = math.floor(index / data.width)
+                        cx = index % data.width
+                        pcall(func)
+                    end
+                end
                 ---
                 ---
             end
