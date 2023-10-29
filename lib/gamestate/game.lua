@@ -685,6 +685,30 @@ local function mousepressed(x, y, button, istouch, presses)
     end
 end
 
+function data:set_state(state)
+    if state == self.gamestate then return false end
+    self.gamestate = state
+
+    if state == GameStates.victory then
+        for y = 0, self.height - 1 do
+            for x = 0, self.width - 1 do
+                local index = y * self.width + x
+                local id = self.tilemap:get_id(x, y)
+
+                if self.grid[index] < 0
+                    and tile_to_state[id] ~= Cell.flag
+                then
+                    local px = x * tile
+                    local py = y * tile
+                    self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+                    self.number_tilemap:insert_tile(px, py)
+                end
+            end
+        end
+    end
+    return true
+end
+
 local function mousereleased(x, y, button, istouch, presses)
     if istouch then return end
 
@@ -718,17 +742,7 @@ local function mousereleased(x, y, button, istouch, presses)
             data:verify_chording(data.cell_x, data.cell_y)
 
             if data:verify_victory() then
-                data.gamestate = GameStates.victory
-                for y = 0, data.height - 1 do
-                    for x = 0, data.width - 1 do
-                        local index = y * data.width + x
-                        local id = data.tilemap:get_id(x, y)
-                        if data.grid[index] < 0 and tile_to_state[id] ~= Cell.flag then
-                            data.tilemap:insert_tile(x * tile, y * tile, state_to_tile[Cell.flag])
-                            data.number_tilemap:insert_tile(x * tile, y * tile)
-                        end
-                    end
-                end
+                data:set_state(GameStates.victory)
             end
         end
         data.chording = false
@@ -777,17 +791,7 @@ local function mousereleased(x, y, button, istouch, presses)
                 end
 
                 if data:verify_victory() then
-                    data.gamestate = GameStates.victory
-                    for y = 0, data.height - 1 do
-                        for x = 0, data.width - 1 do
-                            local index = y * data.width + x
-                            local id = data.tilemap:get_id(x, y)
-                            if data.grid[index] < 0 and tile_to_state[id] ~= Cell.flag then
-                                data.tilemap:insert_tile(x * tile, y * tile, state_to_tile[Cell.flag])
-                                data.number_tilemap:insert_tile(x * tile, y * tile)
-                            end
-                        end
-                    end
+                    data:set_state(GameStates.victory)
                 end
                 ---
                 ---
