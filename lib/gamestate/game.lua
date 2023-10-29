@@ -203,7 +203,7 @@ local function init(args)
 
     data.height = 100 --+ 4
     data.width = 100  --+ 4
-    data.mines = 1000 --28
+    data.mines = 1000 --Utils:round(300 * 300 * 0.3) --28
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -218,7 +218,7 @@ local function init(args)
     local cam = State.camera
     cam:set_position(0, 0)
     cam.scale = 1
-    cam.min_zoom = 0.1
+    cam.min_zoom = 0.15
     cam.max_zoom = 2
     -- cam.scale = 1.23
     -- cam:set_bounds(
