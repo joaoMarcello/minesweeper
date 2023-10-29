@@ -13,7 +13,7 @@ end
 
 ---@class Gamestate.Game : JM.Scene
 local State = JM.Scene:new {
-    x = nil, --100,
+    x = 100, --100,
     y = nil, --75,
     w = nil, --love.graphics.getWidth() - 200,
     h = nil, --love.graphics.getHeight() - 60 - 75,
@@ -201,9 +201,9 @@ local function init(args)
     data.full_tileset = data.tilemap.tile_set
     data.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
-    data.height = 100 --+ 4
-    data.width = 100  --+ 4
-    data.mines = 100  --Utils:round(300 * 300 * 0.3) --28
+    data.height = 16           --+ 4
+    data.width = 16            --+ 4
+    data.mines = 16 * 16 * 0.2 --Utils:round(300 * 300 * 0.3) --28
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -306,10 +306,10 @@ data.reveal_game = function(self)
                 end
                 ---
             else
-                local is_neighbor = math.abs(self.cell_x - x) <= 1 and math.abs(data.cell_y - y) <= 1
+                local is_neighbor = math.abs(self.cell_x - x) <= 1 and math.abs(self.cell_y - y) <= 1
 
                 if tile_to_state[id] == Cell.flag
-                    and (is_neighbor or not has_continue)
+                    and ((self.chording and is_neighbor) or not has_continue)
                 then
                     self.tilemap:insert_tile(px, py, state_to_tile[Cell.wrong])
                 end
@@ -898,29 +898,29 @@ local layer_main = {
         -- local mx, my = data.get_mouse_position(cam)
         -- love.graphics.circle("fill", mx, my, 1)
 
-        -- local px = 0
-        -- local py = 0
-        -- for y = 0, data.height - 1 do
-        --     for x = 0, data.width - 1 do
-        --         local index = (y * data.width) + x
-        --         local cell = data.grid[index]
+        local px = 0
+        local py = 0
+        for y = 0, data.height - 1 do
+            for x = 0, data.width - 1 do
+                local index = (y * data.width) + x
+                local cell = data.grid[index]
 
-        --         if cell == Cell.bomb then
-        --             love.graphics.setColor(0, 0, 0, 0.12)
-        --             love.graphics.circle("fill", px + 8, py + 8, 4)
-        --         else
-        --             if cell and cell > 0 then
-        --                 font:push()
-        --                 font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
-        --                 font:print(tostring(cell), tile * x + 4, tile * y + 4)
-        --                 font:pop()
-        --             end
-        --         end
-        --         px = px + tile
-        --     end
-        --     py = py + tile
-        --     px = 0
-        -- end
+                if cell == Cell.bomb then
+                    love.graphics.setColor(0, 0, 0, 0.12)
+                    love.graphics.circle("fill", px + 8, py + 8, 4)
+                else
+                    if cell and cell > 0 then
+                        font:push()
+                        font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
+                        font:print(tostring(cell), tile * x + 4, tile * y + 4)
+                        font:pop()
+                    end
+                end
+                px = px + tile
+            end
+            py = py + tile
+            px = 0
+        end
 
         -- py = 10
         -- for i = 1, data.mines do
