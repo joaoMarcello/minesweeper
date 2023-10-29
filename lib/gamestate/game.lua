@@ -13,7 +13,7 @@ end
 
 ---@class Gamestate.Game : JM.Scene
 local State = JM.Scene:new {
-    x = 100, --100,
+    x = nil, --100,
     y = nil, --75,
     w = nil, --love.graphics.getWidth() - 200,
     h = nil, --love.graphics.getHeight() - 60 - 75,
@@ -201,9 +201,9 @@ local function init(args)
     data.full_tileset = data.tilemap.tile_set
     data.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
-    data.height = 16           --+ 4
-    data.width = 16            --+ 4
-    data.mines = 16 * 16 * 0.2 --Utils:round(300 * 300 * 0.3) --28
+    data.height = 300 --+ 4
+    data.width = 300  --+ 4
+    data.mines = 5000 --Utils:round(300 * 300 * 0.3) --28
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -218,7 +218,7 @@ local function init(args)
     local cam = State.camera
     cam:set_position(0, 0)
     cam.scale = 1
-    cam.min_zoom = 0.15
+    cam.min_zoom = 0.015
     cam.max_zoom = 2
     -- cam.scale = 1.23
     -- cam:set_bounds(
@@ -335,6 +335,8 @@ data.uncover_cells = function(self, cellx, celly)
         return false
     end
 
+    data.last_index_uncover = index
+
     if value == 0 then
         self.state[index] = Cell.uncover
 
@@ -344,12 +346,21 @@ data.uncover_cells = function(self, cellx, celly)
         end
         -- data:reveal_cell(cellx, celly)
 
-        self:uncover_cells(cellx - 1, celly - 1)
+        -- self:uncover_cells(cellx - 1, celly - 1)
+        -- self:uncover_cells(cellx, celly - 1)
+        -- self:uncover_cells(cellx + 1, celly - 1)
+        -- self:uncover_cells(cellx - 1, celly)
+        -- self:uncover_cells(cellx + 1, celly)
+        -- self:uncover_cells(cellx - 1, celly + 1)
+        -- self:uncover_cells(cellx, celly + 1)
+        -- self:uncover_cells(cellx + 1, celly + 1)
+
         self:uncover_cells(cellx, celly - 1)
+        self:uncover_cells(cellx - 1, celly - 1)
         self:uncover_cells(cellx + 1, celly - 1)
         self:uncover_cells(cellx - 1, celly)
-        self:uncover_cells(cellx + 1, celly)
         self:uncover_cells(cellx - 1, celly + 1)
+        self:uncover_cells(cellx + 1, celly)
         self:uncover_cells(cellx, celly + 1)
         self:uncover_cells(cellx + 1, celly + 1)
         ---
@@ -558,7 +569,12 @@ data.reveal_cell = function(self, cellx, celly, show_explosion)
         self.state[index] = Cell.uncover
         ---
     elseif value == 0 then
-        self:uncover_cells(cellx, celly)
+        local func = function()
+            self:uncover_cells(cellx, celly)
+        end
+        pcall(func)
+        -- self:uncover_cells(cellx, celly)
+
         self.state[index] = Cell.uncover
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
         self.number_tilemap:insert_tile(px, py)
@@ -639,6 +655,53 @@ local function mousepressed(x, y, button, istouch, presses)
     end
 end
 
+data.resolve_stackoverflow = function(self)
+
+end
+---@param self Gamestate.Game.Data
+local function neighbor_is_number(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+
+    local px = cellx * tile
+    local py = celly * tile
+    -- local id = self.tilemap:get_id(px, py)
+    -- local state = tile_to_state[id]
+    local index = celly * self.width + cellx
+    local value = self.grid[index]
+
+    return value >= 0 and self.state[index] == Cell.cover
+end
+
+---@param self Gamestate.Game.Data
+local function is_uncover_wrong(self, cellx, celly)
+    if cellx < 0 or celly < 0 then return false end
+    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+
+    local px = cellx * tile
+    local py = celly * tile
+    -- local id = self.tilemap:get_id(px, py)
+    -- local state = tile_to_state[id]
+    local index = celly * self.width + cellx
+    local value = self.grid[index]
+
+    if value == 0 and self.state[index] == Cell.uncover then
+        local r = 0
+        r = r + (neighbor_is_number(self, cellx - 1, celly - 1) and 1 or 0)
+        r = r + (neighbor_is_number(self, cellx, celly - 1) and 1 or 0)
+        r = r + (neighbor_is_number(self, cellx + 1, celly - 1) and 1 or 0)
+        r = r + (neighbor_is_number(self, cellx - 1, celly) and 1 or 0)
+        r = r + (neighbor_is_number(self, cellx + 1, celly) and 1 or 0)
+        r = r + (neighbor_is_number(self, cellx - 1, celly + 1) and 1 or 0)
+        r = r + (neighbor_is_number(self, cellx, celly + 1) and 1 or 0)
+        r = r + (neighbor_is_number(self, cellx + 1, celly + 1) and 1 or 0)
+
+        if r > 0 then
+            return true
+        end
+    end
+    return false
+end
 
 
 local function mousereleased(x, y, button, istouch, presses)
@@ -704,6 +767,8 @@ local function mousereleased(x, y, button, istouch, presses)
             elseif state ~= Cell.flag then
                 data:unpress_cell(data.cell_x, data.cell_y)
                 local r = pcall(data.uncover_cells_protected)
+                ---
+                ---
             end
 
             reset_spritebatch = true
@@ -898,29 +963,29 @@ local layer_main = {
         -- local mx, my = data.get_mouse_position(cam)
         -- love.graphics.circle("fill", mx, my, 1)
 
-        local px = 0
-        local py = 0
-        for y = 0, data.height - 1 do
-            for x = 0, data.width - 1 do
-                local index = (y * data.width) + x
-                local cell = data.grid[index]
+        -- local px = 0
+        -- local py = 0
+        -- for y = 0, data.height - 1 do
+        --     for x = 0, data.width - 1 do
+        --         local index = (y * data.width) + x
+        --         local cell = data.grid[index]
 
-                if cell == Cell.bomb then
-                    love.graphics.setColor(0, 0, 0, 0.12)
-                    love.graphics.circle("fill", px + 8, py + 8, 4)
-                else
-                    if cell and cell > 0 then
-                        font:push()
-                        font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
-                        font:print(tostring(cell), tile * x + 4, tile * y + 4)
-                        font:pop()
-                    end
-                end
-                px = px + tile
-            end
-            py = py + tile
-            px = 0
-        end
+        --         if cell == Cell.bomb then
+        --             love.graphics.setColor(0, 0, 0, 0.12)
+        --             love.graphics.circle("fill", px + 8, py + 8, 4)
+        --         else
+        --             if cell and cell > 0 then
+        --                 font:push()
+        --                 font:set_color(Utils:get_rgba(0, 0, 0, 0.12))
+        --                 font:print(tostring(cell), tile * x + 4, tile * y + 4)
+        --                 font:pop()
+        --             end
+        --         end
+        --         px = px + tile
+        --     end
+        --     py = py + tile
+        --     px = 0
+        -- end
 
         -- py = 10
         -- for i = 1, data.mines do
@@ -955,6 +1020,7 @@ local layer_gui = {
         -- font:print(tostring(data.dx), 20, 150)
         local vx, vy, vw, vh = State.camera:get_viewport_in_world_coord()
         font:print(string.format("%f\n %f\n %f\n %f", vx, vy, vw, vh), 20, 120)
+        -- font:print(string.format("Error %s", data.error), 70, 120)
     end
 }
 
