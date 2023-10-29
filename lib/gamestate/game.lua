@@ -203,7 +203,7 @@ local function init(args)
 
     data.height = 100 --+ 4
     data.width = 100  --+ 4
-    data.mines = 1000 --Utils:round(300 * 300 * 0.3) --28
+    data.mines = 100  --Utils:round(300 * 300 * 0.3) --28
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -247,6 +247,10 @@ local function init(args)
 
     data.last_cell_x = data.cell_x
     data.last_cell_y = data.cell_y
+
+    data.uncover_cells_protected = function()
+        data:uncover_cells(data.cell_x, data.cell_y)
+    end
 end
 
 local function textinput(t)
@@ -313,7 +317,6 @@ data.reveal_game = function(self)
         end
     end
 end
-
 
 ---@param self Gamestate.Game.Data
 data.uncover_cells = function(self, cellx, celly)
@@ -700,7 +703,7 @@ local function mousereleased(x, y, button, istouch, presses)
                 ---
             elseif state ~= Cell.flag then
                 data:unpress_cell(data.cell_x, data.cell_y)
-                data:uncover_cells(data.cell_x, data.cell_y)
+                local r = pcall(data.uncover_cells_protected)
             end
 
             reset_spritebatch = true
