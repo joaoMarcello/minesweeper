@@ -207,18 +207,26 @@ local function init(args)
     data.pressing = false
     data.cam2 = State:get_camera("cam2")
 
+    State:set_color(0.5, 0.5, 0.5, 1)
+
     local cam = State.camera
     cam:set_position(0, 0)
     cam.scale = 1
     cam.min_zoom = 0.1
+    cam.max_zoom = 2
     -- cam.scale = 1.23
-    cam:set_bounds(
-        -(data.width * tile) / 2,
-        Utils:clamp(data.width * tile * 1.5, State.screen_w, math.huge),
-        -(data.width * tile) / 2,
-        State.screen_h + (data.height * tile) / 2)
+    -- cam:set_bounds(
+    --     -(data.width * tile) / 2,
+    --     Utils:clamp(data.width * tile * 1.5, State.screen_w, math.huge),
+    --     -(data.width * tile) / 2,
+    -- State.screen_h + (data.height * tile) / 2)
+    local off = Utils:round(data.width / 8 * 10)
+    cam:set_bounds(-tile * off,
+        data.width * tile + tile * off,
+        -tile * off,
+        data.height * tile + tile * off)
 
-    cam:set_bounds(-math.huge, math.huge, -math.huge, math.huge)
+    -- cam:set_bounds(-math.huge, math.huge, -math.huge, math.huge)
 
     -- filling tilemap with cover cells
     for y = 0, data.height - 1 do
