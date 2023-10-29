@@ -2,6 +2,7 @@ local path = ...
 local JM = _G.JM_Package
 local TileMap = JM.TileMap
 local Utils = JM.Utils
+local TileSet = JM.TileSet
 
 do
     _G.SUBPIXEL = _G.SUBPIXEL or 3
@@ -191,9 +192,14 @@ end
 local meta_grid = { __index = function() return 0 end }
 local meta_state = { __index = function() return Cell.cover end }
 
+local MIN_SCALE_TO_LOW_RES = 0.3
+
 local function init(args)
     data.tilemap = TileMap:new(generic, "data/img/tilemap.png", 16)
     data.number_tilemap = TileMap:new(generic, "data/img/number_tilemap.png", 16)
+
+    data.full_tileset = data.tilemap.tile_set
+    data.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
     data.height = 100 --+ 4
     data.width = 100  --+ 4
@@ -788,22 +794,26 @@ local function mousemoved(x, y, dx, dy, istouch)
 end
 
 local function wheelmoved(x, y)
-    -- local mx, my = State:get_mouse_position()
-    -- local is_inside_board = position_is_inside_board(mx, my)
-    -- if is_inside_board then
+    local cam = State.camera
     do
         local zoom = 0
         local speed = 1.5
         local dt = love.timer.getDelta()
 
-        if y > 0 then
-            zoom = State.camera.scale + speed * dt
+        if y and y > 0 then
+            zoom = cam.scale + speed * dt
         else
-            zoom = State.camera.scale - speed * dt
+            zoom = cam.scale - speed * dt
         end
-        zoom = Utils:clamp(zoom, State.camera.min_zoom, State.camera.max_zoom)
-        -- State.camera.scale = zoom
-        State.camera:set_zoom(zoom)
+        zoom = Utils:clamp(zoom, cam.min_zoom, cam.max_zoom)
+        cam:set_zoom(zoom)
+    end
+
+    local minscale = MIN_SCALE_TO_LOW_RES
+    if cam.scale < minscale then
+        data.tilemap:change_tileset(data.low_tileset)
+    else
+        data.tilemap:change_tileset(data.full_tileset)
     end
 end
 
@@ -879,7 +889,7 @@ local layer_main = {
         local px = data.cell_x * tile
         local py = data.cell_y * tile
         lgx.setColor(1, 0, 0, 0.7)
-        lgx.rectangle("line", px, py, tile, tile)
+        lgx.rectangle(cam.scale < MIN_SCALE_TO_LOW_RES and "fill" or "line", px, py, tile, tile)
 
         -- love.graphics.setColor(1, 0, 0, 0.3)
         -- local mx, my = data.get_mouse_position(cam)
