@@ -45,6 +45,12 @@ local GameMode = {
     custom = 4,
 }
 
+local GameStates = {
+    victory = 1,
+    dead = 2,
+    playing = 3,
+}
+
 ---@enum GameState.Game.ClickState
 local ClickState = {
     reveal = 1,
@@ -201,9 +207,9 @@ local function init(args)
     data.full_tileset = data.tilemap.tile_set
     data.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
-    data.height = 16                        --+ 4
-    data.width = 16                         --+ 4
-    data.mines = Utils:round(16 * 16 * 0.2) --Utils:round(300 * 300 * 0.3) --28
+    data.height = 8 --+ 4
+    data.width = 8  --+ 4
+    data.mines = 10 --Utils:round(16 * 16 * 0.2)
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -211,6 +217,8 @@ local function init(args)
     data.time_click = 0.0
     data.time_release = 0.0
     data.pressing = false
+    data.gamestate = GameStates.playing
+
     data.cam2 = State:get_camera("cam2")
 
     State:set_color(0.5, 0.5, 0.5, 1)
@@ -251,6 +259,22 @@ local function init(args)
     data.uncover_cells_protected = function()
         data:uncover_cells(data.cell_x, data.cell_y)
     end
+end
+
+function data:verify_victory()
+    local w, h = self.width, self.height
+
+    for y = 0, h - 1 do
+        for x = 0, w - 1 do
+            local index = y * w + x
+            local value = self.grid[index]
+
+            if value >= 0 and self.state[index] == Cell.cover then
+                return false
+            end
+        end
+    end
+    return true
 end
 
 local function textinput(t)
@@ -692,6 +716,20 @@ local function mousereleased(x, y, button, istouch, presses)
 
         if not data.first_click then
             data:verify_chording(data.cell_x, data.cell_y)
+
+            if data:verify_victory() then
+                data.gamestate = GameStates.victory
+                for y = 0, data.height - 1 do
+                    for x = 0, data.width - 1 do
+                        local index = y * data.width + x
+                        local id = data.tilemap:get_id(x, y)
+                        if data.grid[index] < 0 and tile_to_state[id] ~= Cell.flag then
+                            data.tilemap:insert_tile(x * tile, y * tile, state_to_tile[Cell.flag])
+                            data.number_tilemap:insert_tile(x * tile, y * tile)
+                        end
+                    end
+                end
+            end
         end
         data.chording = false
         ---
@@ -735,6 +773,20 @@ local function mousereleased(x, y, button, istouch, presses)
                         cy = math.floor(index / data.width)
                         cx = index % data.width
                         pcall(func)
+                    end
+                end
+
+                if data:verify_victory() then
+                    data.gamestate = GameStates.victory
+                    for y = 0, data.height - 1 do
+                        for x = 0, data.width - 1 do
+                            local index = y * data.width + x
+                            local id = data.tilemap:get_id(x, y)
+                            if data.grid[index] < 0 and tile_to_state[id] ~= Cell.flag then
+                                data.tilemap:insert_tile(x * tile, y * tile, state_to_tile[Cell.flag])
+                                data.number_tilemap:insert_tile(x * tile, y * tile)
+                            end
+                        end
                     end
                 end
                 ---
@@ -912,6 +964,10 @@ local function update(dt)
         cam:move(0, -speed * dt)
         mousemoved()
     end
+
+    -- if data:verify_victory() then
+    --     data.gamestate = GameStates.victory
+    -- end
 end
 
 local layer_main = {
@@ -990,7 +1046,8 @@ local layer_gui = {
         -- font:print(tostring(data.dx), 20, 150)
         local vx, vy, vw, vh = State.camera:get_viewport_in_world_coord()
         font:print(string.format("%f\n %f\n %f\n %f", vx, vy, vw, vh), 20, 120)
-        -- font:print(string.format("Error %s", data.error), 70, 120)
+
+        font:print(data.gamestate == GameStates.victory and "Victory" or "playing", 70, 120)
     end
 }
 
