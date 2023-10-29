@@ -655,55 +655,6 @@ local function mousepressed(x, y, button, istouch, presses)
     end
 end
 
-data.resolve_stackoverflow = function(self)
-
-end
----@param self Gamestate.Game.Data
-local function neighbor_is_number(self, cellx, celly)
-    if cellx < 0 or celly < 0 then return false end
-    if cellx > self.width - 1 or celly > self.height - 1 then return false end
-
-    local px = cellx * tile
-    local py = celly * tile
-    -- local id = self.tilemap:get_id(px, py)
-    -- local state = tile_to_state[id]
-    local index = celly * self.width + cellx
-    local value = self.grid[index]
-
-    return value >= 0 and self.state[index] == Cell.cover
-end
-
----@param self Gamestate.Game.Data
-local function is_uncover_wrong(self, cellx, celly)
-    if cellx < 0 or celly < 0 then return false end
-    if cellx > self.width - 1 or celly > self.height - 1 then return false end
-
-    local px = cellx * tile
-    local py = celly * tile
-    -- local id = self.tilemap:get_id(px, py)
-    -- local state = tile_to_state[id]
-    local index = celly * self.width + cellx
-    local value = self.grid[index]
-
-    if value == 0 and self.state[index] == Cell.uncover then
-        local r = 0
-        r = r + (neighbor_is_number(self, cellx - 1, celly - 1) and 1 or 0)
-        r = r + (neighbor_is_number(self, cellx, celly - 1) and 1 or 0)
-        r = r + (neighbor_is_number(self, cellx + 1, celly - 1) and 1 or 0)
-        r = r + (neighbor_is_number(self, cellx - 1, celly) and 1 or 0)
-        r = r + (neighbor_is_number(self, cellx + 1, celly) and 1 or 0)
-        r = r + (neighbor_is_number(self, cellx - 1, celly + 1) and 1 or 0)
-        r = r + (neighbor_is_number(self, cellx, celly + 1) and 1 or 0)
-        r = r + (neighbor_is_number(self, cellx + 1, celly + 1) and 1 or 0)
-
-        if r > 0 then
-            return true
-        end
-    end
-    return false
-end
-
-
 local function mousereleased(x, y, button, istouch, presses)
     if istouch then return end
 
