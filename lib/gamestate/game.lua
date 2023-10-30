@@ -35,9 +35,19 @@ State:add_camera {
     border_color = Utils:get_rgba(),
 }
 local cam2 = State:get_camera("cam2")
-cam2:set_viewport(200, nil, State.screen_w / 2, State.screen_h)
+cam2:set_viewport(
+    State.screen_w * 0.75,
+    nil,
+    State.screen_w * 0.25,
+    State.screen_h
+)
 
-State.camera:set_viewport(State.screen_w * 0.2, State.screen_h * 0.2, State.screen_w * 0.5, State.screen_h * 0.75)
+State.camera:set_viewport(
+    8,
+    8,
+    State.screen_w * 0.75 - 16,
+    State.screen_h - 16 - 16
+)
 
 ---@enum Gamestate.Game.Modes
 local GameMode = {
@@ -209,9 +219,9 @@ local function init(args)
     data.full_tileset = data.tilemap.tile_set
     data.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
-    data.height = 100 --+ 4
-    data.width = 100  --+ 4
-    data.mines = 1000 --Utils:round(16 * 16 * 0.2)
+    data.height = 16 --+ 4
+    data.width = 16  --+ 4
+    data.mines = 28  --Utils:round(16 * 16 * 0.2)
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -230,18 +240,19 @@ local function init(args)
     cam.scale = 1
     cam.min_zoom = 0.015
     cam.max_zoom = 2
-    -- cam.scale = 1.23
-    -- cam:set_bounds(
-    --     -(data.width * tile) / 2,
-    --     Utils:clamp(data.width * tile * 1.5, State.screen_w, math.huge),
-    --     -(data.width * tile) / 2,
-    -- State.screen_h + (data.height * tile) / 2)
+
+    local z = cam.viewport_h / (data.height * tile)
+    cam:set_zoom(z)
+    cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
+
+
     local off = Utils:round(data.width / 8 * 15)
     cam:set_bounds(-tile * off,
         data.width * tile + tile * off,
         -tile * off,
         data.height * tile + tile * off)
 
+    cam:keep_on_bounds()
     -- cam:set_bounds(-math.huge, math.huge, -math.huge, math.huge)
 
     -- filling tilemap with cover cells
@@ -251,7 +262,7 @@ local function init(args)
         end
     end
 
-    local mx, my = State:get_mouse_position() --data.get_mouse_position()
+    local mx, my = State:get_mouse_position()
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
@@ -830,11 +841,12 @@ local function mousemoved(x, y, dx, dy, istouch)
     local cam = State.camera
 
     local mx, my = State:get_mouse_position()
+    local is_inside_board = position_is_inside_board(mx, my)
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
 
-    if dx and math.abs(dx) > 0 and dy and math.abs(dy) > 0 and mouse.isDown(1) and not data.chording then
+    if dx and math.abs(dx) > 0 and dy and math.abs(dy) > 0 and mouse.isDown(1) and not data.chording and cam:point_is_on_view(mx, my) then
         local ds = math.min((State.w - State.x) / State.screen_w,
             (State.h - State.y) / State.screen_h
         )
@@ -845,7 +857,6 @@ local function mousemoved(x, y, dx, dy, istouch)
     end
 
 
-    local is_inside_board = position_is_inside_board(mx, my)
 
     local mx2, my2 = cam:world_to_screen(mx, my)
     cam:set_focus_x(mx2)
@@ -983,6 +994,9 @@ local layer_main = {
     draw = function(self, cam)
         if cam == data.cam2 then return end
 
+        love.graphics.setColor(179 / 255, 185 / 255, 209 / 255)
+        love.graphics.rectangle("fill", cam:get_viewport_in_world_coord())
+
         local font = JM.Font.current
 
         data.tilemap:draw(cam)
@@ -1047,12 +1061,15 @@ local layer_gui = {
     ---@param cam JM.Camera.Camera
     draw = function(self, cam)
         if cam == State.camera then return end
-        love.graphics.setColor(0, 0, 1)
-        love.graphics.rectangle("fill", 0, 0, 100, 32)
+        love.graphics.setColor(88 / 255, 141 / 255, 190 / 255)
+        love.graphics.rectangle("fill", cam:get_viewport_in_world_coord())
+
         local font = JM.Font.current
         font:print("Continue " .. tostring(data.continue), 20, 90)
         -- font:print(tostring(data.dx), 20, 150)
         local vx, vy, vw, vh = State.camera:get_viewport_in_world_coord()
+        vx = State.camera.x
+        vy = State.camera.y
         font:print(string.format("%f\n %f\n %f\n %f", vx, vy, vw, vh), 20, 120)
 
         font:print(data.gamestate == GameStates.victory and "Victory" or "playing", 70, 120)
