@@ -37,6 +37,8 @@ State:add_camera {
 local cam2 = State:get_camera("cam2")
 cam2:set_viewport(200, nil, State.screen_w / 2, State.screen_h)
 
+State.camera:set_viewport(State.screen_w * 0.2, State.screen_h * 0.2, State.screen_w * 0.5, State.screen_h * 0.75)
+
 ---@enum Gamestate.Game.Modes
 local GameMode = {
     beginner = 1,
@@ -207,9 +209,9 @@ local function init(args)
     data.full_tileset = data.tilemap.tile_set
     data.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
-    data.height = 8 --+ 4
-    data.width = 8  --+ 4
-    data.mines = 10 --Utils:round(16 * 16 * 0.2)
+    data.height = 100 --+ 4
+    data.width = 100  --+ 4
+    data.mines = 1000 --Utils:round(16 * 16 * 0.2)
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -657,7 +659,9 @@ end
 local function mousepressed(x, y, button, istouch, presses)
     if istouch then return end
 
-    local mx, my = State:get_mouse_position() --data.get_mouse_position()
+    local mx, my = State:get_mouse_position()
+    -- mx = mx - cam.viewport_x / cam.scale
+    -- my = my - cam.viewport_y / cam.scale
     local is_inside_board = position_is_inside_board(mx, my)
 
     if not is_inside_board or button > 2 then return end
@@ -712,7 +716,7 @@ end
 local function mousereleased(x, y, button, istouch, presses)
     if istouch then return end
 
-    local mx, my = State:get_mouse_position() --data.get_mouse_position()
+    local mx, my = State:get_mouse_position()
     local is_inside_board = position_is_inside_board(mx, my)
 
     local px = data.cell_x * tile
@@ -823,12 +827,12 @@ local function mousemoved(x, y, dx, dy, istouch)
     if istouch then return end
 
     local reset_spritebatch = false
+    local cam = State.camera
 
-    local mx, my = State:get_mouse_position() --data.get_mouse_position()
+    local mx, my = State:get_mouse_position()
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
-    local cam = State.camera
 
     if dx and math.abs(dx) > 0 and dy and math.abs(dy) > 0 and mouse.isDown(1) and not data.chording then
         local ds = math.min((State.w - State.x) / State.screen_w,
@@ -990,7 +994,7 @@ local layer_main = {
         lgx.rectangle(cam.scale < MIN_SCALE_TO_LOW_RES and "fill" or "line", px, py, tile, tile)
 
         -- love.graphics.setColor(1, 0, 0, 0.3)
-        -- local mx, my = data.get_mouse_position(cam)
+        -- local mx, my = State:get_mouse_position(cam)
         -- love.graphics.circle("fill", mx, my, 1)
 
         -- local px = 0
@@ -1052,6 +1056,12 @@ local layer_gui = {
         font:print(string.format("%f\n %f\n %f\n %f", vx, vy, vw, vh), 20, 120)
 
         font:print(data.gamestate == GameStates.victory and "Victory" or "playing", 70, 120)
+
+        local mx, my = State:get_mouse_position(State.camera)
+        local view = position_is_inside_board(mx, my)
+        font:print(State.camera:point_is_on_view(mx, my) and "True" or "False", 50, 66)
+
+        font:print(string.format("%f %f", mx, my), 120, 10)
     end
 }
 
