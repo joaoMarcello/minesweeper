@@ -219,9 +219,9 @@ local function init(args)
     data.full_tileset = data.tilemap.tile_set
     data.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
-    data.height = 16 --+ 4
-    data.width = 16  --+ 4
-    data.mines = 28  --Utils:round(16 * 16 * 0.2)
+    data.height = 8 --+ 4
+    data.width = 8  --+ 4
+    data.mines = 10 --Utils:round(16 * 16 * 0.2)
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -229,6 +229,12 @@ local function init(args)
     data.time_click = 0.0
     data.time_release = 0.0
     data.pressing = false
+    data.touches = {
+        [1] = {},
+        [2] = {}
+    }
+    data.touches_ids = {}
+    data.n_touches = 0
     data.gamestate = GameStates.playing
 
     data.cam2 = State:get_camera("cam2")
@@ -236,6 +242,13 @@ local function init(args)
     State:set_color(0.5, 0.5, 0.5, 1)
 
     local cam = State.camera
+
+    local off = Utils:round(data.width / 8 * 15)
+    cam:set_bounds(-tile * off,
+        data.width * tile + tile * off,
+        -tile * off,
+        data.height * tile + tile * off)
+
     cam:set_position(0, 0)
     cam.scale = 1
     cam.min_zoom = 0.015
@@ -245,12 +258,6 @@ local function init(args)
     cam:set_zoom(z)
     cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
 
-
-    local off = Utils:round(data.width / 8 * 15)
-    cam:set_bounds(-tile * off,
-        data.width * tile + tile * off,
-        -tile * off,
-        data.height * tile + tile * off)
 
     cam:keep_on_bounds()
     -- cam:set_bounds(-math.huge, math.huge, -math.huge, math.huge)
@@ -667,10 +674,12 @@ data.verify_chording = function(self, cellx, celly)
     end
 end
 
-local function mousepressed(x, y, button, istouch, presses)
+local function mousepressed(x, y, button, istouch, presses, mx, my)
     if istouch then return end
 
-    local mx, my = State:get_mouse_position()
+    if not mx or not my then
+        mx, my = State:get_mouse_position()
+    end
     -- mx = mx - cam.viewport_x / cam.scale
     -- my = my - cam.viewport_y / cam.scale
     local is_inside_board = position_is_inside_board(mx, my)
@@ -724,10 +733,13 @@ function data:set_state(state)
     return true
 end
 
-local function mousereleased(x, y, button, istouch, presses)
+local function mousereleased(x, y, button, istouch, presses, mx, my)
     if istouch then return end
 
-    local mx, my = State:get_mouse_position()
+    if not mx or not my then
+        mx, my = State:get_mouse_position()
+    end
+
     local is_inside_board = position_is_inside_board(mx, my)
 
     local px = data.cell_x * tile
@@ -834,13 +846,16 @@ local function mousereleased(x, y, button, istouch, presses)
     end
 end
 
-local function mousemoved(x, y, dx, dy, istouch)
+local function mousemoved(x, y, dx, dy, istouch, mx, my)
     if istouch then return end
 
     local reset_spritebatch = false
     local cam = State.camera
 
-    local mx, my = State:get_mouse_position()
+    if not mx or not my then
+        mx, my = State:get_mouse_position()
+    end
+
     local is_inside_board = position_is_inside_board(mx, my)
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
@@ -857,10 +872,9 @@ local function mousemoved(x, y, dx, dy, istouch)
     end
 
 
-
     local mx2, my2 = cam:world_to_screen(mx, my)
-    cam:set_focus_x(mx2)
-    cam:set_focus_y(my2)
+    cam:set_focus(mx2, my2)
+
     -- data.last_state = tile_to_state[data.tilemap:get_id(data.last_cell_x * tile, data.last_cell_y * tile)]
 
     if data.chording then
@@ -927,15 +941,43 @@ local function wheelmoved(x, y)
 end
 
 local function touchpressed(id, x, y, dx, dy, pressure)
-    mousepressed(x, y, 1)
+    if data.n_touches < 2 then
+        data.n_touches = data.n_touches + 1
+        data.touches_ids[id] = true
+
+        data.touches[data.n_touches].x = x
+        data.touches[data.n_touches].y = y
+        data.touches[data.n_touches].id = id
+    end
+
+    if data.n_touches <= 1 and data.touches_ids[id] then
+        local mx, my = State:point_monitor_to_world(x, y)
+        mousepressed(x, y, 1, nil, nil, mx, my)
+        ---
+    elseif data.n_touches == 2 then
+
+    end
 end
 
 local function touchreleased(id, x, y, dx, dy, pressure)
-    mousereleased(x, y, 1)
+    if data.touches_ids[id] then
+        data.n_touches = data.n_touches - 1
+        data.touches_ids[id] = nil
+
+        local mx, my = State:point_monitor_to_world(x, y)
+        mousereleased(x, y, 1, nil, nil, mx, my)
+    end
 end
 
 local function touchmoved(id, x, y, dx, dy, pressure)
-    mousemoved(x, y, dx, dy)
+    if data.touches_ids[id] then
+        if data.n_touches <= 1 then
+            local mx, my = State:point_monitor_to_world(x, y)
+            mousemoved(x, y, dx, dy, nil, mx, my)
+        elseif data.n_touches == 2 then
+
+        end
+    end
 end
 
 local function gamepadpressed(joystick, button)
@@ -1103,6 +1145,7 @@ State:implements {
     wheelmoved = wheelmoved,
     touchpressed = touchpressed,
     touchreleased = touchreleased,
+    touchmoved = touchmoved,
     gamepadpressed = gamepadpressed,
     gamepadreleased = gamepadreleased,
     resize = resize,
