@@ -146,13 +146,13 @@ function love.gamepadaxis(joy, axis, value)
 end
 
 function love.resize(w, h)
-    local scene = SceneManager.scene
-    if scene then scene:resize(w, h) end
+    -- local scene = SceneManager.scene
+    -- if scene then scene:resize(w, h) end
 end
 
 local km = 0
 function love.update(dt)
-    km = collectgarbage("count") / 1024.0
+    -- km = collectgarbage("count") / 1024.0
     JM:update(dt)
     SceneManager.scene:update(dt)
 end

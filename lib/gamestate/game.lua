@@ -675,7 +675,7 @@ data.verify_chording = function(self, cellx, celly)
 end
 
 local function mousepressed(x, y, button, istouch, presses, mx, my)
-    if istouch then return end
+    -- if istouch then return end
 
     if not mx or not my then
         mx, my = State:get_mouse_position()
@@ -734,7 +734,7 @@ function data:set_state(state)
 end
 
 local function mousereleased(x, y, button, istouch, presses, mx, my)
-    if istouch then return end
+    -- if istouch then return end
 
     if not mx or not my then
         mx, my = State:get_mouse_position()
@@ -846,7 +846,7 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     end
 end
 
-local function mousemoved(x, y, dx, dy, istouch, mx, my)
+local function mousemoved(x, y, dx, dy, istouch, mx, my, mouseIsDown1, mouseIsDown2)
     if istouch then return end
 
     local reset_spritebatch = false
@@ -861,7 +861,10 @@ local function mousemoved(x, y, dx, dy, istouch, mx, my)
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
 
-    if dx and math.abs(dx) > 0 and dy and math.abs(dy) > 0 and mouse.isDown(1) and not data.chording and cam:point_is_on_view(mx, my) then
+    if ((dx and math.abs(dx) > 0) or (dy and math.abs(dy) > 0))
+        and (mouseIsDown1 or mouse.isDown(1)) and not data.chording
+        and cam:point_is_on_view(mx, my)
+    then
         local ds = math.min((State.w - State.x) / State.screen_w,
             (State.h - State.y) / State.screen_h
         )
@@ -899,7 +902,8 @@ local function mousemoved(x, y, dx, dy, istouch, mx, my)
         local last_state = tile_to_state[id]
 
         if (last_state == Cell.press)
-            or (mouse.isDown(1) or mouse.isDown(2))
+            or (mouseIsDown1 or mouse.isDown(1)
+                or mouseIsDown2 or mouse.isDown(2))
         then
             reset_spritebatch = data:unpress_cell(data.last_cell_x, data.last_cell_y) or reset_spritebatch
 
@@ -923,7 +927,7 @@ local function wheelmoved(x, y)
         local speed = 1.5
         local dt = love.timer.getDelta()
 
-        if y and y > 0 then
+        if y > 0 then
             zoom = cam.scale + speed * dt
         else
             zoom = cam.scale - speed * dt
@@ -943,10 +947,14 @@ end
 local function touchpressed(id, x, y, dx, dy, pressure)
     if data.n_touches < 2 then
         data.n_touches = data.n_touches + 1
-        data.touches_ids[id] = true
+        data.touches_ids[id] = data.touches[data.n_touches]
 
         data.touches[data.n_touches].x = x
         data.touches[data.n_touches].y = y
+        data.touches[data.n_touches].lx = x
+        data.touches[data.n_touches].ly = y
+        data.touches[data.n_touches].dx = dx
+        data.touches[data.n_touches].dy = dy
         data.touches[data.n_touches].id = id
     end
 
@@ -970,12 +978,53 @@ local function touchreleased(id, x, y, dx, dy, pressure)
 end
 
 local function touchmoved(id, x, y, dx, dy, pressure)
-    if data.touches_ids[id] then
-        if data.n_touches <= 1 then
-            local mx, my = State:point_monitor_to_world(x, y)
-            mousemoved(x, y, dx, dy, nil, mx, my)
-        elseif data.n_touches == 2 then
+    local touch = data.touches_ids[id]
 
+    if touch then
+        touch.lx = touch.x
+        touch.ly = touch.y
+        touch.x = x
+        touch.y = y
+        touch.dx = dx
+        touch.dy = dy
+
+        -- only move the board if exactly one touch is active
+        if data.n_touches == 1 then
+            local mx, my = State:point_monitor_to_world(x, y)
+            mousemoved(x, y, dx, dy, nil, mx, my, true)
+            ---
+        elseif data.n_touches == 2 and touch == data.touches[2] then
+            local touch1 = data.touches[1].y < data.touches[2].y
+                and data.touches[1] or data.touches[2]
+
+            local touch2 = touch1 == data.touches[1] and data.touches[2]
+                or data.touches[1]
+
+            local mx1, my1 = State:point_monitor_to_world(touch1.x, touch1.y)
+            local mx2, my2 = State:point_monitor_to_world(touch2.x, touch2.y)
+
+            local cam = State.camera
+            local ds = math.min((State.w - State.x) / State.screen_w,
+                (State.h - State.y) / State.screen_h
+            )
+            local dx1 = touch1.dx / ds / cam.scale
+            local dy1 = touch1.dy / ds / cam.scale
+            local dx2 = touch2.dx / ds / cam.scale
+            local dy2 = touch2.dy / ds / cam.scale
+
+            local rw = math.abs(mx1 - mx2)
+            local rh = math.abs(my1 - my2)
+            local rx = mx1 < mx2 and mx1 or mx2
+            local ry = my1
+
+            cam:set_focus(cam:world_to_screen(rx + rw * 0.5, ry + rh * 0.5))
+
+            if (dy1 <= 0 and dy2 > 0) then
+                wheelmoved(nil, 1)
+            elseif dy1 >= 0 and dy2 < 0 then
+                wheelmoved(nil, -1)
+            end
+            ---
         end
     end
 end
