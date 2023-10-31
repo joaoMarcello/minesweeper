@@ -238,7 +238,7 @@ local function init(args)
     data.n_touches = 0
     data.gamestate = GameStates.playing
 
-    data.cam2 = State:get_camera("cam2")
+    -- data.cam2 = State:get_camera("cam2")
 
     State:set_color(0.5, 0.5, 0.5, 1)
 
@@ -676,6 +676,30 @@ data.verify_chording = function(self, cellx, celly)
     end
 end
 
+function data:set_state(state)
+    if state == self.gamestate then return false end
+    self.gamestate = state
+
+    if state == GameStates.victory then
+        for y = 0, self.height - 1 do
+            for x = 0, self.width - 1 do
+                local index = y * self.width + x
+                local id = self.tilemap:get_id(x, y)
+
+                if self.grid[index] < 0
+                    and tile_to_state[id] ~= Cell.flag
+                then
+                    local px = x * tile
+                    local py = y * tile
+                    self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+                    self.number_tilemap:insert_tile(px, py)
+                end
+            end
+        end
+    end
+    return true
+end
+
 local function mousepressed(x, y, button, istouch, presses, mx, my)
     if istouch then return end
 
@@ -713,29 +737,7 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
     end
 end
 
-function data:set_state(state)
-    if state == self.gamestate then return false end
-    self.gamestate = state
 
-    if state == GameStates.victory then
-        for y = 0, self.height - 1 do
-            for x = 0, self.width - 1 do
-                local index = y * self.width + x
-                local id = self.tilemap:get_id(x, y)
-
-                if self.grid[index] < 0
-                    and tile_to_state[id] ~= Cell.flag
-                then
-                    local px = x * tile
-                    local py = y * tile
-                    self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
-                    self.number_tilemap:insert_tile(px, py)
-                end
-            end
-        end
-    end
-    return true
-end
 
 local function mousereleased(x, y, button, istouch, presses, mx, my)
     if istouch then return end
@@ -934,16 +936,16 @@ local function wheelmoved(x, y, force_zoom)
     local is_inside_board = cam:point_is_on_screen(State:get_mouse_position(cam_game))
 
     if force_zoom or is_inside_board then
-        local zoom = 0
-        local speed = 1.5
-        local dt = love.timer.getDelta()
+        local zoom = cam.scale
+        local speed = 0.1
+        -- local dt = love.timer.getDelta()
 
         if y > 0 then
-            zoom = cam.scale + speed * dt
+            zoom = cam.scale + speed --+ speed * dt
         else
-            zoom = cam.scale - speed * dt
+            zoom = cam.scale - speed ---- speed * dt
         end
-        zoom = Utils:clamp(zoom, cam.min_zoom, cam.max_zoom)
+        -- zoom = Utils:clamp(zoom, cam.min_zoom, cam.max_zoom)
         cam:set_zoom(zoom)
     end
 
@@ -971,8 +973,8 @@ local function touchpressed(id, x, y, dx, dy, pressure)
     end
 
     if data.n_touches <= 1 and data.touches_ids[id] then
-        local mx, my = State:point_monitor_to_world(x, y)
-        mousepressed(mx, my, 1)
+        local mx, my = State:point_monitor_to_world(x, y, cam_game)
+        mousepressed(mx, my, 1, nil, nil, mx, my)
         ---
     elseif data.n_touches == 2 then
 
@@ -984,8 +986,8 @@ local function touchreleased(id, x, y, dx, dy, pressure)
         data.n_touches = data.n_touches - 1
         data.touches_ids[id] = nil
 
-        local mx, my = State:point_monitor_to_world(x, y)
-        mousereleased(mx, my, 1)
+        local mx, my = State:point_monitor_to_world(x, y, cam_game)
+        mousereleased(mx, my, 1, nil, nil, mx, my)
     end
 end
 
@@ -1002,8 +1004,8 @@ local function touchmoved(id, x, y, dx, dy, pressure)
 
         -- only move the board if exactly one touch is active
         if data.n_touches == 1 then
-            local mx, my = State:point_monitor_to_world(x, y)
-            mousemoved(mx, my, dx, dy, nil, true)
+            local mx, my = State:point_monitor_to_world(x, y, cam_game)
+            mousemoved(mx, my, dx, dy, nil, true, nil, mx, my)
             ---
         elseif data.n_touches == 2 then
             local touch1 = data.touches[1].y < data.touches[2].y
@@ -1012,17 +1014,18 @@ local function touchmoved(id, x, y, dx, dy, pressure)
             local touch2 = touch1 == data.touches[1] and data.touches[2]
                 or data.touches[1]
 
-            local mx1, my1 = State:point_monitor_to_world(touch1.x, touch1.y)
-            local mx2, my2 = State:point_monitor_to_world(touch2.x, touch2.y)
+            local cam = cam_game
 
-            local cam = State.camera
+            local mx1, my1 = State:point_monitor_to_world(touch1.x, touch1.y, cam)
+            local mx2, my2 = State:point_monitor_to_world(touch2.x, touch2.y, cam)
+
             -- local ds = math.min((State.w - State.x) / State.screen_w,
             --     (State.h - State.y) / State.screen_h
             -- )
-            local dx1 = State:monitor_length_to_world(touch1.dx)
-            local dy1 = State:monitor_length_to_world(touch1.dy)
-            local dx2 = State:monitor_length_to_world(touch2.dx)
-            local dy2 = State:monitor_length_to_world(touch2.dy)
+            local dx1 = State:monitor_length_to_world(touch1.dx, cam)
+            local dy1 = State:monitor_length_to_world(touch1.dy, cam)
+            local dx2 = State:monitor_length_to_world(touch2.dx, cam)
+            local dy2 = State:monitor_length_to_world(touch2.dy, cam)
 
             -- local dx1 = touch1.dx / ds / cam.scale
             -- local dy1 = touch1.dy / ds / cam.scale
@@ -1037,9 +1040,9 @@ local function touchmoved(id, x, y, dx, dy, pressure)
             cam:set_focus(cam:world_to_screen(rx + rw * 0.5, ry + rh * 0.5))
 
             if (dy1 <= 0 and dy2 > 0) then
-                wheelmoved(nil, 1)
+                wheelmoved(nil, 1, true)
             elseif dy1 >= 0 and dy2 < 0 then
-                wheelmoved(nil, -1)
+                wheelmoved(nil, -1, true)
             end
             ---
         end
