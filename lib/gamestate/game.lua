@@ -32,17 +32,18 @@ local State = JM.Scene:new {
 
 State:add_camera {
     name = "cam2",
-    border_color = Utils:get_rgba(),
+    -- border_color = Utils:get_rgba(),
 }
-local cam2 = State:get_camera("cam2")
-cam2:set_viewport(
-    State.screen_w * 0.75,
+local cam_gui = State.camera --State:get_camera("cam2")
+cam_gui:set_viewport(
+    State.screen_w * 0,
     nil,
-    State.screen_w * 0.25,
+    State.screen_w * 1,
     State.screen_h
 )
 
-State.camera:set_viewport(
+local cam_game = State:get_camera("cam2") --State.camera
+cam_game:set_viewport(
     8,
     8,
     State.screen_w * 0.75 - 16,
@@ -135,7 +136,7 @@ end
 
 local function position_is_inside_board(x, y)
     return x > 0 and x <= data.width * tile and y > 0 and y <= data.height * tile and
-        State.camera:point_is_on_screen(x, y)
+        cam_game:point_is_on_screen(x, y)
 end
 
 local generic = function()
@@ -241,7 +242,7 @@ local function init(args)
 
     State:set_color(0.5, 0.5, 0.5, 1)
 
-    local cam = State.camera
+    local cam = cam_game --State.camera
 
     local off = Utils:round(data.width / 8 * 15)
     cam:set_bounds(-tile * off,
@@ -269,7 +270,7 @@ local function init(args)
         end
     end
 
-    local mx, my = State:get_mouse_position()
+    local mx, my = State:get_mouse_position(cam_game)
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
@@ -303,9 +304,10 @@ end
 
 local function keypressed(key)
     if key == 'o' then
-        State.camera:toggle_grid()
-        State.camera:toggle_world_bounds()
-        State.camera:toggle_debug()
+        local cam = cam_game
+        cam:toggle_grid()
+        cam:toggle_world_bounds()
+        cam:toggle_debug()
     end
 
     if key == 'i' then
@@ -677,10 +679,11 @@ end
 local function mousepressed(x, y, button, istouch, presses, mx, my)
     if istouch then return end
 
-    local mx, my = x, y
-    -- if not mx or not my then
-    --     mx, my = State:get_mouse_position()
-    -- end
+    -- local mx, my = x, y
+    if not mx or not my then
+        mx, my = State:get_mouse_position(cam_game)
+    end
+
     -- mx = mx - cam.viewport_x / cam.scale
     -- my = my - cam.viewport_y / cam.scale
     local is_inside_board = position_is_inside_board(mx, my)
@@ -737,10 +740,10 @@ end
 local function mousereleased(x, y, button, istouch, presses, mx, my)
     if istouch then return end
 
-    -- if not mx or not my then
-    --     mx, my = State:get_mouse_position()
-    -- end
-    local mx, my = x, y
+    if not mx or not my then
+        mx, my = State:get_mouse_position(cam_game)
+    end
+    -- local mx, my = x, y
 
     local is_inside_board = position_is_inside_board(mx, my)
 
@@ -848,16 +851,16 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     end
 end
 
-local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2)
+local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx, my)
     if istouch then return end
 
     local reset_spritebatch = false
-    local cam = State.camera
+    local cam = cam_game --State.camera
 
-    -- if not mx or not my then
-    --     mx, my = State:get_mouse_position()
-    -- end
-    local mx, my = x, y
+    if not mx or not my then
+        mx, my = State:get_mouse_position(cam_game)
+    end
+    -- local mx, my = x, y
 
     local is_inside_board = position_is_inside_board(mx, my)
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
@@ -926,9 +929,11 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2)
     end
 end
 
-local function wheelmoved(x, y)
-    local cam = State.camera
-    do
+local function wheelmoved(x, y, force_zoom)
+    local cam = cam_game --State.camera
+    local is_inside_board = cam:point_is_on_screen(State:get_mouse_position(cam_game))
+
+    if force_zoom or is_inside_board then
         local zoom = 0
         local speed = 1.5
         local dt = love.timer.getDelta()
@@ -1076,7 +1081,7 @@ local function update(dt)
     --     data.time_release = Utils:clamp(data.time_release - dt, 0.0, 100.0)
     -- end
 
-    local cam = State.camera
+    local cam = cam_game --State.camera
     local speed = 32
     local controller = JM.ControllerManager.P1
 
@@ -1104,7 +1109,8 @@ end
 local layer_main = {
     ---@param cam JM.Camera.Camera
     draw = function(self, cam)
-        if cam == data.cam2 then return end
+        -- if cam == data.cam2 then return end
+        if cam ~= cam_game then return end
 
         love.graphics.setColor(179 / 255, 185 / 255, 209 / 255)
         love.graphics.rectangle("fill", cam:get_viewport_in_world_coord())
@@ -1172,32 +1178,37 @@ local layer_main = {
 local layer_gui = {
     ---@param cam JM.Camera.Camera
     draw = function(self, cam)
-        if cam == State.camera then return end
+        -- if cam == State.camera then return end
+        if cam ~= cam_gui then return end
+
         love.graphics.setColor(88 / 255, 141 / 255, 190 / 255)
         love.graphics.rectangle("fill", cam:get_viewport_in_world_coord())
 
+        lgx.push()
+        lgx.translate(cam_game.viewport_w - cam_game.viewport_x, 0)
         local font = JM.Font.current
         font:print("Continue " .. tostring(data.continue), 20, 90)
         -- font:print(tostring(data.dx), 20, 150)
-        local vx, vy, vw, vh = State.camera:get_viewport_in_world_coord()
-        vx = State.camera.x
-        vy = State.camera.y
+        local vx, vy, vw, vh = cam_game:get_viewport_in_world_coord()
+        vx = cam_game.x
+        vy = cam_game.y
         font:print(string.format("%f\n %f\n %f\n %f", vx, vy, vw, vh), 20, 120)
 
         font:print(data.gamestate == GameStates.victory and "Victory" or "playing", 70, 120)
 
-        local mx, my = State:get_mouse_position(State.camera)
+        local mx, my = State:get_mouse_position(cam_game)
         local view = position_is_inside_board(mx, my)
-        font:print(State.camera:point_is_on_view(mx, my) and "True" or "False", 50, 66)
+        font:print(cam_game:point_is_on_view(mx, my) and "True" or "False", 50, 66)
 
         font:print(string.format("%f %f", mx, my), 120, 10)
+        lgx.pop()
     end
 }
 
 local layers = {
     --
-    layer_main,
     layer_gui,
+    layer_main,
     --
     --
 }
