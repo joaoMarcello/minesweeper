@@ -14,9 +14,9 @@ end
 ---@class Gamestate.Game : JM.Scene
 local State = JM.Scene:new {
     x = nil, --100,
-    y = nil, --75,
+    y = nil, --0,
     w = nil, --love.graphics.getWidth() - 200,
-    h = nil, --love.graphics.getHeight() - 60 - 75,
+    h = nil, --love.graphics.getHeight() / 2,
     canvas_w = _G.SCREEN_WIDTH or 320,
     canvas_h = _G.SCREEN_HEIGHT or 180,
     tile = _G.TILE,
@@ -227,7 +227,7 @@ local function init(args)
     data.first_click = true
     data.continue = 2
     data.time_click = 0.0
-    data.time_release = 0.0
+    -- data.time_release = 0.0
     data.pressing = false
     data.touches = {
         [1] = {},
@@ -675,11 +675,12 @@ data.verify_chording = function(self, cellx, celly)
 end
 
 local function mousepressed(x, y, button, istouch, presses, mx, my)
-    -- if istouch then return end
+    if istouch then return end
 
-    if not mx or not my then
-        mx, my = State:get_mouse_position()
-    end
+    local mx, my = x, y
+    -- if not mx or not my then
+    --     mx, my = State:get_mouse_position()
+    -- end
     -- mx = mx - cam.viewport_x / cam.scale
     -- my = my - cam.viewport_y / cam.scale
     local is_inside_board = position_is_inside_board(mx, my)
@@ -734,11 +735,12 @@ function data:set_state(state)
 end
 
 local function mousereleased(x, y, button, istouch, presses, mx, my)
-    -- if istouch then return end
+    if istouch then return end
 
-    if not mx or not my then
-        mx, my = State:get_mouse_position()
-    end
+    -- if not mx or not my then
+    --     mx, my = State:get_mouse_position()
+    -- end
+    local mx, my = x, y
 
     local is_inside_board = position_is_inside_board(mx, my)
 
@@ -749,7 +751,7 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     local index = data.cell_y * data.width + data.cell_x
     local reset_spritebatch = false
     local allow_click = data.time_click < 0.5
-        and data.time_release <= 0.0
+        -- and data.time_release <= 0.0
         and data.pressing
 
     if data.first_click and is_inside_board and button == 1
@@ -827,7 +829,7 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
             reset_spritebatch = true
         end
 
-        data.time_release = 0.06
+        -- data.time_release = 0.06
 
         --
     else
@@ -846,15 +848,16 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     end
 end
 
-local function mousemoved(x, y, dx, dy, istouch, mx, my, mouseIsDown1, mouseIsDown2)
+local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2)
     if istouch then return end
 
     local reset_spritebatch = false
     local cam = State.camera
 
-    if not mx or not my then
-        mx, my = State:get_mouse_position()
-    end
+    -- if not mx or not my then
+    --     mx, my = State:get_mouse_position()
+    -- end
+    local mx, my = x, y
 
     local is_inside_board = position_is_inside_board(mx, my)
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
@@ -865,13 +868,16 @@ local function mousemoved(x, y, dx, dy, istouch, mx, my, mouseIsDown1, mouseIsDo
         and (mouseIsDown1 or mouse.isDown(1)) and not data.chording
         and cam:point_is_on_view(mx, my)
     then
-        local ds = math.min((State.w - State.x) / State.screen_w,
-            (State.h - State.y) / State.screen_h
-        )
-        -- data.dx = dx
-        -- data.pressing = false
-        data.time_click = 1
-        cam:move(-dx / ds / cam.scale, -dy / ds / cam.scale)
+        -- local ds = math.min((State.w - State.x) / State.screen_w,
+        --     (State.h - State.y) / State.screen_h
+        -- )
+
+        local qx = State:monitor_length_to_world(dx) --dx / ds / cam.scale
+        local qy = State:monitor_length_to_world(dy) --dy / ds / cam.scale
+        cam:move(-qx, -qy)
+        if math.abs(qx) > 1 or math.abs(qy) > 1 then
+            data.time_click = 1000
+        end
     end
 
 
@@ -947,20 +953,21 @@ end
 local function touchpressed(id, x, y, dx, dy, pressure)
     if data.n_touches < 2 then
         data.n_touches = data.n_touches + 1
-        data.touches_ids[id] = data.touches[data.n_touches]
+        local N = data.n_touches
+        data.touches_ids[id] = data.touches[N]
 
-        data.touches[data.n_touches].x = x
-        data.touches[data.n_touches].y = y
-        data.touches[data.n_touches].lx = x
-        data.touches[data.n_touches].ly = y
-        data.touches[data.n_touches].dx = dx
-        data.touches[data.n_touches].dy = dy
-        data.touches[data.n_touches].id = id
+        data.touches[N].x = x
+        data.touches[N].y = y
+        data.touches[N].lx = x
+        data.touches[N].ly = y
+        data.touches[N].dx = dx
+        data.touches[N].dy = dy
+        data.touches[N].id = id
     end
 
     if data.n_touches <= 1 and data.touches_ids[id] then
         local mx, my = State:point_monitor_to_world(x, y)
-        mousepressed(x, y, 1, nil, nil, mx, my)
+        mousepressed(mx, my, 1)
         ---
     elseif data.n_touches == 2 then
 
@@ -973,7 +980,7 @@ local function touchreleased(id, x, y, dx, dy, pressure)
         data.touches_ids[id] = nil
 
         local mx, my = State:point_monitor_to_world(x, y)
-        mousereleased(x, y, 1, nil, nil, mx, my)
+        mousereleased(mx, my, 1)
     end
 end
 
@@ -991,9 +998,9 @@ local function touchmoved(id, x, y, dx, dy, pressure)
         -- only move the board if exactly one touch is active
         if data.n_touches == 1 then
             local mx, my = State:point_monitor_to_world(x, y)
-            mousemoved(x, y, dx, dy, nil, mx, my, true)
+            mousemoved(mx, my, dx, dy, nil, true)
             ---
-        elseif data.n_touches == 2 and touch == data.touches[2] then
+        elseif data.n_touches == 2 then
             local touch1 = data.touches[1].y < data.touches[2].y
                 and data.touches[1] or data.touches[2]
 
@@ -1004,13 +1011,18 @@ local function touchmoved(id, x, y, dx, dy, pressure)
             local mx2, my2 = State:point_monitor_to_world(touch2.x, touch2.y)
 
             local cam = State.camera
-            local ds = math.min((State.w - State.x) / State.screen_w,
-                (State.h - State.y) / State.screen_h
-            )
-            local dx1 = touch1.dx / ds / cam.scale
-            local dy1 = touch1.dy / ds / cam.scale
-            local dx2 = touch2.dx / ds / cam.scale
-            local dy2 = touch2.dy / ds / cam.scale
+            -- local ds = math.min((State.w - State.x) / State.screen_w,
+            --     (State.h - State.y) / State.screen_h
+            -- )
+            local dx1 = State:monitor_length_to_world(touch1.dx)
+            local dy1 = State:monitor_length_to_world(touch1.dy)
+            local dx2 = State:monitor_length_to_world(touch2.dx)
+            local dy2 = State:monitor_length_to_world(touch2.dy)
+
+            -- local dx1 = touch1.dx / ds / cam.scale
+            -- local dy1 = touch1.dy / ds / cam.scale
+            -- local dx2 = touch2.dx / ds / cam.scale
+            -- local dy2 = touch2.dy / ds / cam.scale
 
             local rw = math.abs(mx1 - mx2)
             local rh = math.abs(my1 - my2)
@@ -1038,9 +1050,18 @@ local function gamepadreleased(joystick, button)
 end
 
 local function resize(w, h)
-    State.w = w
-    State.h = h
+    local prop_x = State.x / State.dispositive_w
+    local prop_y = State.y / State.dispositive_h
+    local prop_w = State.w / State.dispositive_w
+    local prop_h = State.h / State.dispositive_h
+
+    State.w = w * prop_w
+    State.h = h * prop_h
+    State.x = w * prop_x
+    State.y = h * prop_y
+
     State:calc_canvas_scale()
+    State.dispositive_w, State.dispositive_h = w, h
 end
 
 local function update(dt)
@@ -1048,12 +1069,12 @@ local function update(dt)
         data.time_click = data.time_click + dt
     end
 
-    if data.time_release > 0.0
-        and not mouse.isDown(1)
-        and not mouse.isDown(2)
-    then
-        data.time_release = Utils:clamp(data.time_release - dt, 0.0, 100.0)
-    end
+    -- if data.time_release > 0.0
+    --     and not mouse.isDown(1)
+    --     and not mouse.isDown(2)
+    -- then
+    --     data.time_release = Utils:clamp(data.time_release - dt, 0.0, 100.0)
+    -- end
 
     local cam = State.camera
     local speed = 32

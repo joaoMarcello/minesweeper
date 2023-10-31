@@ -146,8 +146,8 @@ function love.gamepadaxis(joy, axis, value)
 end
 
 function love.resize(w, h)
-    -- local scene = SceneManager.scene
-    -- if scene then scene:resize(w, h) end
+    local scene = SceneManager.scene
+    if scene then scene:resize(w, h) end
 end
 
 local km = 0
