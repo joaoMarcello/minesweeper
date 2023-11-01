@@ -938,14 +938,13 @@ local function wheelmoved(x, y, force_zoom)
     if force_zoom or is_inside_board then
         local zoom = cam.scale
         local speed = 0.1
-        -- local dt = love.timer.getDelta()
 
         if y > 0 then
-            zoom = cam.scale + speed --+ speed * dt
+            zoom = cam.scale + speed
         else
-            zoom = cam.scale - speed ---- speed * dt
+            zoom = cam.scale - speed
         end
-        -- zoom = Utils:clamp(zoom, cam.min_zoom, cam.max_zoom)
+
         cam:set_zoom(zoom)
     end
 
