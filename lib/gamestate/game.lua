@@ -50,6 +50,10 @@ cam_game:set_viewport(
     State.screen_h - 16 - 16
 )
 
+cam_game:toggle_grid()
+cam_game:toggle_world_bounds()
+cam_game:toggle_debug()
+
 ---@enum Gamestate.Game.Modes
 local GameMode = {
     beginner = 1,
@@ -701,12 +705,17 @@ function data:set_state(state)
 end
 
 local function mousepressed(x, y, button, istouch, presses, mx, my)
-    if istouch then return end
+    if istouch then
+        return
+    end
 
     -- local mx, my = x, y
     if not mx or not my then
         mx, my = State:get_mouse_position(cam_game)
     end
+
+    data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
+    data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
     -- mx = mx - cam.viewport_x / cam.scale
     -- my = my - cam.viewport_y / cam.scale
@@ -877,9 +886,12 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
         --     (State.h - State.y) / State.screen_h
         -- )
 
-        local qx = State:monitor_length_to_world(dx) --dx / ds / cam.scale
-        local qy = State:monitor_length_to_world(dy) --dy / ds / cam.scale
+        local qx = State:monitor_length_to_world(dx, cam_game)
+        local qy = State:monitor_length_to_world(dy, cam_game)
+        -- local qx = dx / ds / cam.scale
+        -- local qy = dy / ds / cam.scale
         cam:move(-qx, -qy)
+
         if math.abs(qx) > 1 or math.abs(qy) > 1 then
             data.time_click = 1000
         end
@@ -959,16 +971,16 @@ end
 local function touchpressed(id, x, y, dx, dy, pressure)
     if data.n_touches < 2 then
         data.n_touches = data.n_touches + 1
-        local N = data.n_touches
-        data.touches_ids[id] = data.touches[N]
+        local tab = {}
+        data.touches_ids[id] = tab --data.touches[N]
 
-        data.touches[N].x = x
-        data.touches[N].y = y
-        data.touches[N].lx = x
-        data.touches[N].ly = y
-        data.touches[N].dx = dx
-        data.touches[N].dy = dy
-        data.touches[N].id = id
+        tab.x = x
+        tab.y = y
+        tab.lx = x
+        tab.ly = y
+        tab.dx = dx
+        tab.dy = dy
+        tab.id = id
     end
 
     if data.n_touches <= 1 and data.touches_ids[id] then
@@ -1007,11 +1019,24 @@ local function touchmoved(id, x, y, dx, dy, pressure)
             mousemoved(mx, my, dx, dy, nil, true, nil, mx, my)
             ---
         elseif data.n_touches == 2 then
-            local touch1 = data.touches[1].y < data.touches[2].y
-                and data.touches[1] or data.touches[2]
+            local touch1, touch2
+            for key, value in pairs(data.touches_ids) do
+                if not touch1 then
+                    touch1 = value --data.touches_ids[key]
+                else
+                    touch2 = value --data.touches_ids[key]
+                    break
+                end
+            end
 
-            local touch2 = touch1 == data.touches[1] and data.touches[2]
-                or data.touches[1]
+            if touch2.y < touch1.y then
+                touch1, touch2 = touch2, touch1
+            end
+            -- local touch1 = data.touches[1].y < data.touches[2].y
+            --     and data.touches[1] or data.touches[2]
+
+            -- local touch2 = touch1 == data.touches[1] and data.touches[2]
+            --     or data.touches[1]
 
             local cam = cam_game
 
