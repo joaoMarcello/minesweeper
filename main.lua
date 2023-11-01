@@ -13,14 +13,22 @@ function love.load()
 
     _G.SCREEN_WIDTH = JM.Utils:round(398)
     _G.SCREEN_HEIGHT = JM.Utils:round(224)
+
+    -- SCREEN_WIDTH, SCREEN_HEIGHT = SCREEN_HEIGHT, SCREEN_WIDTH
+
     _G.SUBPIXEL = 3
     _G.TILE = 16
     _G.CANVAS_FILTER = "linear"
     _G.TARGET = "pc"
 
     JM.Font.current:set_font_size(8)
-    -- local state = require(JM.SplashScreenPath)
+
     local state = require("lib.gamestate.game")
+
+    -- ---@type JM.GameState.Splash
+    -- local state = require(JM.SplashScreenPath)
+    -- state:__get_data__():set_next_state_string("lib.gamestate.game")
+
 
     SceneManager:change_gamestate(state)
     _G.PLAY_SFX = function(name, force)

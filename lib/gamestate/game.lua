@@ -50,9 +50,9 @@ cam_game:set_viewport(
     State.screen_h - 16 - 16
 )
 
-cam_game:toggle_grid()
-cam_game:toggle_world_bounds()
-cam_game:toggle_debug()
+-- cam_game:toggle_grid()
+-- cam_game:toggle_world_bounds()
+-- cam_game:toggle_debug()
 
 ---@enum Gamestate.Game.Modes
 local GameMode = {
@@ -139,7 +139,7 @@ local function increment(x, y)
 end
 
 local function position_is_inside_board(x, y)
-    return x > 0 and x <= data.width * tile and y > 0 and y <= data.height * tile and
+    return x >= 0 and x <= data.width * tile and y >= 0 and y <= data.height * tile and
         cam_game:point_is_on_screen(x, y)
 end
 
@@ -234,13 +234,13 @@ local function init(args)
     data.time_click = 0.0
     -- data.time_release = 0.0
     data.pressing = false
-    data.touches = {
-        [1] = {},
-        [2] = {}
-    }
     data.touches_ids = {}
     data.n_touches = 0
     data.gamestate = GameStates.playing
+    data.time_gamepad_axis_x = 0
+    data.direction_x = 0
+    data.time_gamepad_axis_y = 0
+    data.direction_y = 0
 
     -- data.cam2 = State:get_camera("cam2")
 
@@ -1074,11 +1074,36 @@ local function touchmoved(id, x, y, dx, dy, pressure)
 end
 
 local function gamepadpressed(joystick, button)
+    local controller = JM.ControllerManager.P1
+    local Button = controller.Button
 
+    local mx, my = data.cell_x * tile, data.cell_y * tile
+
+    if controller:pressed(Button.A, joystick, button) then
+        mousepressed(mx, my, 1, nil, nil, mx, my)
+    elseif controller:pressed(Button.B, joystick, button) then
+        mousepressed(mx, my, 2, nil, nil, mx, my)
+    end
 end
 
 local function gamepadreleased(joystick, button)
+    local controller = JM.ControllerManager.P1
+    local Button = controller.Button
 
+    local mx, my = data.cell_x * tile, data.cell_y * tile
+
+    if controller:released(Button.A, joystick, button) then
+        mousereleased(mx, my, 1, nil, nil, mx, my)
+    elseif controller:released(Button.B, joystick, button) then
+        mousereleased(mx, my, 2, nil, nil, mx, my)
+    end
+end
+
+local function gamepadaxis(joy, axis, value)
+    local controller = JM.ControllerManager.P1
+    local Button = controller.Button
+
+    local mx, my = data.cell_x * tile, data.cell_y * tile
 end
 
 local function resize(w, h)
@@ -1096,9 +1121,18 @@ local function resize(w, h)
     State.dispositive_w, State.dispositive_h = w, h
 end
 
+
 local function update(dt)
     if data.pressing then
         data.time_click = data.time_click + dt
+    end
+
+    if data.time_gamepad_axis_x > 0 then
+        data.time_gamepad_axis_x = Utils:clamp(data.time_gamepad_axis_x - dt, 0, 100)
+    end
+
+    if data.time_gamepad_axis_y > 0 then
+        data.time_gamepad_axis_y = Utils:clamp(data.time_gamepad_axis_y - dt, 0, 100)
     end
 
     -- if data.time_release > 0.0
@@ -1111,6 +1145,7 @@ local function update(dt)
     local cam = cam_game --State.camera
     local speed = 32
     local controller = JM.ControllerManager.P1
+    local Button = controller.Button
 
     if controller:pressing(controller.Button.dpad_right) then
         cam:move(speed * dt)
@@ -1128,9 +1163,54 @@ local function update(dt)
         mousemoved()
     end
 
-    -- if data:verify_victory() then
-    --     data.gamestate = GameStates.victory
-    -- end
+    local axis_x = controller:pressing(Button.left_stick_x)
+    if data.time_gamepad_axis_x == 0 then
+        if axis_x > 0.5 then
+            data.cell_x = Utils:clamp(data.cell_x + 1, 0, data.width - 1)
+            data.time_gamepad_axis_x = data.direction_x <= 0 and 0.3 or 0.1
+            data.direction_x = 1
+            local mx, my = data.cell_x * tile, data.cell_y * tile
+            mousemoved(nil, nil, nil, nil, nil, controller:pressing(Button.A), controller:pressing(Button.B), mx, my)
+            ---
+        elseif axis_x < -0.5 then
+            data.cell_x = Utils:clamp(data.cell_x - 1, 0, data.width - 1)
+            data.time_gamepad_axis_x = data.direction_x >= 0 and 0.3 or 0.1
+            data.direction_x = -1
+            local mx, my = data.cell_x * tile, data.cell_y * tile
+            mousemoved(nil, nil, nil, nil, nil, controller:pressing(Button.A), controller:pressing(Button.B), mx, my)
+            ---
+        else
+            data.direction_x = 0
+        end
+        ---
+    elseif axis_x == 0 then
+        data.time_gamepad_axis_x = 0
+    end
+
+    local axis_y = controller:pressing(Button.left_stick_y)
+    if data.time_gamepad_axis_y == 0 then
+        if axis_y > 0.5 then
+            data.cell_y = Utils:clamp(data.cell_y + 1, 0, data.height - 1)
+            data.time_gamepad_axis_y = data.direction_y <= 0 and 0.3 or 0.1
+            data.direction_y = 1
+            local mx, my = data.cell_x * tile, data.cell_y * tile
+            mousemoved(nil, nil, nil, nil, nil, controller:pressing(Button.A), controller:pressing(Button.B), mx, my)
+            ---
+        elseif axis_y < -0.5 then
+            data.cell_y = Utils:clamp(data.cell_y - 1, 0, data.height - 1)
+            data.time_gamepad_axis_y = data.direction_y >= 0 and 0.3 or 0.1
+            data.direction_y = -1
+            local mx, my = data.cell_x * tile, data.cell_y * tile
+            mousemoved(nil, nil, nil, nil, nil, controller:pressing(Button.A), controller:pressing(Button.B), mx, my)
+            ---
+        else
+            data.direction_y = 0
+            data.time_gamepad_axis_y = 0
+        end
+        ---
+    elseif axis_y == 0 then
+        data.time_gamepad_axis_y = 0
+    end
 end
 
 local layer_main = {
@@ -1256,6 +1336,7 @@ State:implements {
     touchmoved = touchmoved,
     gamepadpressed = gamepadpressed,
     gamepadreleased = gamepadreleased,
+    gamepadaxis = gamepadaxis,
     resize = resize,
     update = update,
     layers = layers,
