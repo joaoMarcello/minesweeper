@@ -35,20 +35,20 @@ State:add_camera {
     -- border_color = Utils:get_rgba(),
 }
 local cam_gui = State.camera --State:get_camera("cam2")
-cam_gui:set_viewport(
-    State.screen_w * 0,
-    nil,
-    State.screen_w * 1,
-    State.screen_h
-)
+-- cam_gui:set_viewport(
+--     State.screen_w * 0,
+--     nil,
+--     State.screen_w * 1,
+--     State.screen_h
+-- )
 
 local cam_game = State:get_camera("cam2") --State.camera
-cam_game:set_viewport(
-    8,
-    8,
-    State.screen_w * 0.75 - 16,
-    State.screen_h - 16 - 16
-)
+-- cam_game:set_viewport(
+--     8,
+--     8,
+--     State.screen_w * 0.75 - 16,
+--     State.screen_h - 16 - 16
+-- )
 
 -- cam_game:toggle_grid()
 -- cam_game:toggle_world_bounds()
@@ -146,6 +146,42 @@ end
 local generic = function()
 
 end
+
+---@param orientation "portrait"|"landscape"|any
+data.change_orientation = function(self, orientation)
+    orientation = orientation or "landscape"
+
+    if orientation == "landscape" then
+        cam_gui:set_viewport(
+            State.screen_w * 0,
+            nil,
+            State.screen_w * 1,
+            State.screen_h
+        )
+
+        cam_game:set_viewport(
+            8,
+            8,
+            State.screen_w * 0.75 - 16,
+            State.screen_h - 16 - 16
+        )
+        ---
+    else
+        cam_gui:set_viewport(
+            State.screen_w * 0,
+            State.screen_h * 0,
+            State.screen_w * 1,
+            State.screen_h
+        )
+
+        cam_game:set_viewport(
+            4,
+            State.screen_h * 0 + 16 + 8,
+            State.screen_w * 1 - 8,
+            State.screen_h - 16 * 4 - (16 + 8)
+        )
+    end
+end
 --============================================================================
 
 function State:__get_data__()
@@ -153,7 +189,7 @@ function State:__get_data__()
 end
 
 local function load()
-
+    data:change_orientation("portrait")
 end
 
 local function finish()
@@ -218,6 +254,8 @@ local meta_state = { __index = function() return Cell.cover end }
 local MIN_SCALE_TO_LOW_RES = 0.3
 
 local function init(args)
+    data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
+
     data.tilemap = TileMap:new(generic, "data/img/tilemap.png", 16)
     data.number_tilemap = TileMap:new(generic, "data/img/number_tilemap.png", 16)
 
@@ -312,6 +350,11 @@ local function keypressed(key)
         cam:toggle_grid()
         cam:toggle_world_bounds()
         cam:toggle_debug()
+    end
+
+    if key == 'v' then
+        State:change_game_screen(State.screen_h, State.screen_w)
+        data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
     end
 
     if key == 'i' then
@@ -1115,9 +1158,16 @@ local function gamepadpressed(joystick, button)
     local mx, my = data.cell_x * tile, data.cell_y * tile
 
     if controller:pressed(Button.A, joystick, button) then
-        mousepressed(mx, my, 1, nil, nil, mx, my)
+        local index = data.cell_y * data.width + data.cell_x
+
+        local bt = data.grid[index] >= 0
+            and data.state[index] == Cell.uncover
+            and 2 or 1
+        mousepressed(mx, my, bt, nil, nil, mx, my)
+        ---
     elseif controller:pressed(Button.B, joystick, button) then
         local id = data.number_tilemap:get_id(mx, my)
+
         if id == 10 or id == 9
             or tile_to_state[data.tilemap:get_id(mx, my)] == Cell.flag
         then
@@ -1129,6 +1179,7 @@ local function gamepadpressed(joystick, button)
         else
             mousepressed(mx, my, 2, nil, nil, mx, my)
         end
+        ---
     elseif controller:pressed(Button.Y, joystick, button) then
         local id = data.number_tilemap:get_id(mx, my)
 
@@ -1168,19 +1219,6 @@ local function gamepadaxis(joy, axis, value)
     local Button = controller.Button
 
     local mx, my = data.cell_x * tile, data.cell_y * tile
-
-    -- controller.time_delay_button[Button.L2] = 0.1
-    -- local tr = controller:pressing_time(Button.L2)
-    -- if tr and tr > 0 then
-    --     cam_game:set_focus(cam_game:world_to_screen(mx + tile * 0.5, my + tile * 0.5))
-    --     wheelmoved(0, -1)
-    -- end
-    -- controller.time_delay_button[Button.R2] = 0.1
-    -- tr = controller:pressing_time(Button.R2)
-    -- if tr and tr > 0 then
-    --     cam_game:set_focus(cam_game:world_to_screen(mx + tile * 0.5, my + tile * 0.5))
-    --     wheelmoved(0, 1)
-    -- end
 end
 
 local function resize(w, h)
@@ -1196,6 +1234,13 @@ local function resize(w, h)
 
     State:calc_canvas_scale()
     State.dispositive_w, State.dispositive_h = w, h
+
+    if (w > h and State.screen_h > State.screen_w)
+        or (h > w and State.screen_w > State.screen_h)
+    then
+        State:change_game_screen(State.screen_h, State.screen_w)
+    end
+    data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 end
 
 
