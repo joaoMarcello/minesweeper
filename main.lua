@@ -31,9 +31,9 @@ function love.load()
 
     local state = require("lib.gamestate.game")
 
-    ---@type JM.GameState.Splash
-    local state = require(JM.SplashScreenPath)
-    state:__get_data__():set_next_state_string("lib.gamestate.game")
+    -- ---@type JM.GameState.Splash
+    -- local state = require(JM.SplashScreenPath)
+    -- state:__get_data__():set_next_state_string("lib.gamestate.game")
 
 
     SceneManager:change_gamestate(state, { skip_transition = true })

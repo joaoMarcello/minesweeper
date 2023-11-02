@@ -362,6 +362,8 @@ local function init(args)
 
     data.timer = Timer:new()
     State:add_object(data.timer)
+
+    data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 end
 
 function data:verify_victory()
@@ -399,8 +401,13 @@ local function keypressed(key)
     end
 
     if key == 'v' then
-        State:change_game_screen(State.screen_h, State.screen_w)
-        data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
+        if data.orientation == "landscape" then
+            State:change_game_screen(224, 448)
+            data:change_orientation("portrait")
+        else
+            State:change_game_screen(398, 224)
+            data:change_orientation("landscape")
+        end
     end
 
     if key == 'i' then
@@ -804,9 +811,9 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
 
     local is_inside_board = position_is_inside_board(mx, my)
 
+    data.pressing = true
     if not is_inside_board or button > 2 then return end
 
-    data.pressing = true
 
     local px = data.cell_x * tile
     local py = data.cell_y * tile
@@ -1211,10 +1218,10 @@ end
 local function resize(w, h)
     if (w > h and (State.screen_h > State.screen_w or State.screen_w ~= 398
             or State.screen_h ~= 224))
-    -- or (h > w and State.screen_w > State.screen_h)
     then
         State:change_game_screen(398, 224)
-    elseif h > w and (State.screen_w > State.screen_h or State.screen_w ~= 224 or State.screen_h ~= 448) then
+        ---
+    elseif h > w and (State.screen_w > State.screen_h or State.screen_w ~= 224 or State.screen_h ~= 448) then --448
         State:change_game_screen(224, 448)
     end
 
