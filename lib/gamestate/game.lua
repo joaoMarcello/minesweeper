@@ -27,7 +27,7 @@ local State = JM.Scene:new {
     bound_right = 1366,
     bound_bottom = 1366,
     cam_scale = 1,
-    show_border = true,
+    -- show_border = true,
 }
 
 State:add_camera {
@@ -237,10 +237,10 @@ local function init(args)
     data.touches_ids = {}
     data.n_touches = 0
     data.gamestate = GameStates.playing
-    data.time_gamepad_axis_x = 0
     data.direction_x = 0
-    data.time_gamepad_axis_y = 0
     data.direction_y = 0
+    mouse.setVisible(true)
+
 
     -- data.cam2 = State:get_camera("cam2")
 
@@ -401,23 +401,57 @@ data.uncover_cells = function(self, cellx, celly)
         end
         -- data:reveal_cell(cellx, celly)
 
-        -- self:uncover_cells(cellx - 1, celly - 1)
-        -- self:uncover_cells(cellx, celly - 1)
-        -- self:uncover_cells(cellx + 1, celly - 1)
-        -- self:uncover_cells(cellx - 1, celly)
-        -- self:uncover_cells(cellx + 1, celly)
-        -- self:uncover_cells(cellx - 1, celly + 1)
-        -- self:uncover_cells(cellx, celly + 1)
-        -- self:uncover_cells(cellx + 1, celly + 1)
-
-        self:uncover_cells(cellx - 1, celly)
         self:uncover_cells(cellx - 1, celly - 1)
         self:uncover_cells(cellx, celly - 1)
+        self:uncover_cells(cellx + 1, celly - 1)
+        self:uncover_cells(cellx - 1, celly)
         self:uncover_cells(cellx + 1, celly)
         self:uncover_cells(cellx - 1, celly + 1)
         self:uncover_cells(cellx, celly + 1)
-        self:uncover_cells(cellx + 1, celly - 1)
         self:uncover_cells(cellx + 1, celly + 1)
+
+        -- self:uncover_cells(cellx - 1, celly)
+        -- self:uncover_cells(cellx - 1, celly - 1)
+        -- self:uncover_cells(cellx, celly - 1)
+        -- self:uncover_cells(cellx + 1, celly)
+        -- self:uncover_cells(cellx - 1, celly + 1)
+        -- self:uncover_cells(cellx, celly + 1)
+        -- self:uncover_cells(cellx + 1, celly - 1)
+        -- self:uncover_cells(cellx + 1, celly + 1)
+
+        -- do
+        --     if celly - 1 >= 0 then
+        --         if cellx - 1 >= 0 then
+        --             self:uncover_cells(cellx - 1, celly - 1)
+        --         end
+
+        --         self:uncover_cells(cellx, celly - 1)
+
+        --         if cellx + 1 < data.width then
+        --             self:uncover_cells(cellx + 1, celly - 1)
+        --         end
+        --     end
+
+        --     if cellx - 1 >= 0 then
+        --         self:uncover_cells(cellx - 1, celly)
+        --     end
+
+        --     if cellx + 1 < data.width then
+        --         self:uncover_cells(cellx + 1, celly)
+        --     end
+
+        --     if celly + 1 < data.height then
+        --         if cellx - 1 >= 0 then
+        --             self:uncover_cells(cellx - 1, celly + 1)
+        --         end
+
+        --         self:uncover_cells(cellx, celly + 1)
+
+        --         if cellx + 1 < data.width then
+        --             return self:uncover_cells(cellx + 1, celly + 1)
+        --         end
+        --     end
+        -- end
 
         ---
     elseif value > 0 and state ~= Cell.flag then
@@ -425,9 +459,10 @@ data.uncover_cells = function(self, cellx, celly)
 
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.uncover])
         self.number_tilemap:insert_tile(px, py, value)
+        return true
+    else
+        return false
     end
-
-    return true
 end
 
 ---@param self Gamestate.Game.Data
@@ -820,18 +855,18 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
                 data:unpress_cell(data.cell_x, data.cell_y)
                 local r = pcall(data.uncover_cells_protected)
 
-                if not r then
-                    local cx, cy
-                    local func = function()
-                        data:unpress_cell(cx, cy)
-                    end
-                    for i = 1, 50 do
-                        local index = data.last_index_uncover
-                        cy = math.floor(index / data.width)
-                        cx = index % data.width
-                        pcall(func)
-                    end
-                end
+                -- if not r then
+                --     local cx, cy
+                --     local func = function()
+                --         data:unpress_cell(cx, cy)
+                --     end
+                --     for i = 1, 50 do
+                --         local index = data.last_index_uncover
+                --         cy = math.floor(index / data.width)
+                --         cx = index % data.width
+                --         pcall(func)
+                --     end
+                -- end
 
                 if data:verify_victory() then
                     data:set_state(GameStates.victory)
@@ -892,7 +927,7 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
         -- local qy = dy / ds / cam.scale
         cam:move(-qx, -qy)
 
-        if math.abs(qx) > 1 or math.abs(qy) > 1 then
+        if math.abs(dx) > 2 or math.abs(dy) > 2 then
             data.time_click = 1000
         end
     end
@@ -1083,6 +1118,12 @@ local function gamepadpressed(joystick, button)
         mousepressed(mx, my, 1, nil, nil, mx, my)
     elseif controller:pressed(Button.B, joystick, button) then
         mousepressed(mx, my, 2, nil, nil, mx, my)
+    elseif controller:pressed(Button.Y, joystick, button) then
+        mousepressed(mx, my, 2, nil, nil, mx, my)
+        mousereleased(mx, my, 2, nil, nil, mx, my)
+        data.time_click = 0
+        mousepressed(mx, my, 2, nil, nil, mx, my)
+        mousereleased(mx, my, 2, nil, nil, mx, my)
     end
 end
 
@@ -1099,6 +1140,9 @@ local function gamepadreleased(joystick, button)
     end
 end
 
+---@param joy love.Joystick
+---@param axis love.GamepadAxis
+---@param value any
 local function gamepadaxis(joy, axis, value)
     local controller = JM.ControllerManager.P1
     local Button = controller.Button
@@ -1127,13 +1171,6 @@ local function update(dt)
         data.time_click = data.time_click + dt
     end
 
-    if data.time_gamepad_axis_x > 0 then
-        data.time_gamepad_axis_x = Utils:clamp(data.time_gamepad_axis_x - dt, 0, 100)
-    end
-
-    if data.time_gamepad_axis_y > 0 then
-        data.time_gamepad_axis_y = Utils:clamp(data.time_gamepad_axis_y - dt, 0, 100)
-    end
 
     -- if data.time_release > 0.0
     --     and not mouse.isDown(1)
@@ -1147,69 +1184,100 @@ local function update(dt)
     local controller = JM.ControllerManager.P1
     local Button = controller.Button
 
-    if controller:pressing(controller.Button.dpad_right) then
-        cam:move(speed * dt)
-        mousemoved()
-    elseif controller:pressing(controller.Button.dpad_left) then
-        cam:move(-speed * dt)
-        mousemoved()
-    end
+    if controller.state == controller.State.keyboard then
+        if controller:pressing(controller.Button.dpad_right) then
+            cam:move(speed * dt)
+            mousemoved()
+        elseif controller:pressing(controller.Button.dpad_left) then
+            cam:move(-speed * dt)
+            mousemoved()
+        end
 
-    if controller:pressing(controller.Button.dpad_down) then
-        cam:move(0, speed * dt)
-        mousemoved()
-    elseif controller:pressing(controller.Button.dpad_up) then
-        cam:move(0, -speed * dt)
-        mousemoved()
-    end
+        if controller:pressing(controller.Button.dpad_down) then
+            cam:move(0, speed * dt)
+            mousemoved()
+        elseif controller:pressing(controller.Button.dpad_up) then
+            cam:move(0, -speed * dt)
+            mousemoved()
+        end
+        ---
+    elseif controller.state == controller.State.joystick then
+        local axis_right_x = controller:pressing(Button.right_stick_x)
+        if axis_right_x < -0.5 then
+            cam:move(-speed * dt)
+            if data.cell_x * tile + tile > cam.x + cam.viewport_w / cam.scale then
+                data.cell_x = Utils:clamp(math.floor((cam.x + cam.viewport_w / cam.scale - tile) / tile), 0,
+                    data.width - 1)
+            end
+        elseif axis_right_x > 0.5 then
+            cam:move(speed * dt)
+            if data.cell_x * tile < cam_game.x then
+                data.cell_x = Utils:clamp(math.floor((cam.x + tile) / tile), 0, data.width - 1)
+            end
+        end
 
-    local axis_x = controller:pressing(Button.left_stick_x)
-    if data.time_gamepad_axis_x == 0 then
-        if axis_x > 0.5 then
+        local axis_right_y = controller:pressing(Button.right_stick_y)
+        if axis_right_y < -0.5 then
+            cam:move(0, -speed * dt)
+            if data.cell_y * tile + tile > cam.y + cam.viewport_h / cam.scale then
+                data.cell_y = Utils:clamp(math.floor((cam.y + cam.viewport_h / cam.scale - tile) / tile), 0,
+                    data.height - 1)
+            end
+        elseif axis_right_y > 0.5 then
+            cam:move(0, speed * dt)
+            if data.cell_y * tile < cam_game.y then
+                data.cell_y = Utils:clamp(math.floor((cam.y + tile) / tile), 0, data.height - 1)
+            end
+        end
+
+        if data.direction_x == 0 then
+            controller.time_delay_button[Button.left_stick_x] = 0.5
+        else
+            controller.time_delay_button[Button.left_stick_x] = 0.1
+        end
+
+        local axis_x = controller:pressing_time(Button.left_stick_x)
+
+        if axis_x and axis_x > 0 then
             data.cell_x = Utils:clamp(data.cell_x + 1, 0, data.width - 1)
-            data.time_gamepad_axis_x = data.direction_x <= 0 and 0.3 or 0.1
+
             data.direction_x = 1
             local mx, my = data.cell_x * tile, data.cell_y * tile
             mousemoved(nil, nil, nil, nil, nil, controller:pressing(Button.A), controller:pressing(Button.B), mx, my)
             ---
-        elseif axis_x < -0.5 then
+        elseif axis_x and axis_x < 0 then
             data.cell_x = Utils:clamp(data.cell_x - 1, 0, data.width - 1)
-            data.time_gamepad_axis_x = data.direction_x >= 0 and 0.3 or 0.1
+
             data.direction_x = -1
             local mx, my = data.cell_x * tile, data.cell_y * tile
             mousemoved(nil, nil, nil, nil, nil, controller:pressing(Button.A), controller:pressing(Button.B), mx, my)
             ---
-        else
+        elseif (controller:pressing(Button.left_stick_x)) == 0 then
             data.direction_x = 0
         end
-        ---
-    elseif axis_x == 0 then
-        data.time_gamepad_axis_x = 0
-    end
 
-    local axis_y = controller:pressing(Button.left_stick_y)
-    if data.time_gamepad_axis_y == 0 then
-        if axis_y > 0.5 then
+        if data.direction_y == 0 then
+            controller.time_delay_button[Button.left_stick_y] = 0.5
+        else
+            controller.time_delay_button[Button.left_stick_y] = 0.1
+        end
+        local axis_y = controller:pressing_time(Button.left_stick_y)
+
+        if axis_y and axis_y > 0 then
             data.cell_y = Utils:clamp(data.cell_y + 1, 0, data.height - 1)
-            data.time_gamepad_axis_y = data.direction_y <= 0 and 0.3 or 0.1
             data.direction_y = 1
             local mx, my = data.cell_x * tile, data.cell_y * tile
             mousemoved(nil, nil, nil, nil, nil, controller:pressing(Button.A), controller:pressing(Button.B), mx, my)
             ---
-        elseif axis_y < -0.5 then
+        elseif axis_y and axis_y < 0 then
             data.cell_y = Utils:clamp(data.cell_y - 1, 0, data.height - 1)
-            data.time_gamepad_axis_y = data.direction_y >= 0 and 0.3 or 0.1
             data.direction_y = -1
             local mx, my = data.cell_x * tile, data.cell_y * tile
             mousemoved(nil, nil, nil, nil, nil, controller:pressing(Button.A), controller:pressing(Button.B), mx, my)
             ---
-        else
+        elseif controller:pressing(Button.left_stick_y) == 0 then
             data.direction_y = 0
-            data.time_gamepad_axis_y = 0
         end
-        ---
-    elseif axis_y == 0 then
-        data.time_gamepad_axis_y = 0
     end
 end
 

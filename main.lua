@@ -9,7 +9,7 @@ function love.load()
     lgx.setBackgroundColor(0, 0, 0, 1)
     lgx.setDefaultFilter("nearest", "nearest")
     lgx.setLineStyle("rough")
-    love.mouse.setVisible(true)
+    love.mouse.setVisible(false)
 
     _G.SCREEN_WIDTH = JM.Utils:round(398)
     _G.SCREEN_HEIGHT = JM.Utils:round(224)
@@ -30,7 +30,8 @@ function love.load()
     -- state:__get_data__():set_next_state_string("lib.gamestate.game")
 
 
-    SceneManager:change_gamestate(state)
+    SceneManager:change_gamestate(state, { skip_transition = true })
+
     _G.PLAY_SFX = function(name, force)
         JM.Sound:play_sfx(name, force)
     end
