@@ -4,6 +4,8 @@ local TileMap = JM.TileMap
 local Utils = JM.Utils
 local TileSet = JM.TileSet
 
+local Timer = require "lib.timer"
+
 do
     _G.SUBPIXEL = _G.SUBPIXEL or 3
     _G.CANVAS_FILTER = _G.CANVAS_FILTER or 'linear'
@@ -155,6 +157,10 @@ data.change_orientation = function(self, orientation)
             State.screen_h - 16 - 16
         )
 
+        if data.timer then
+            data.timer.x = 320
+            data.timer.y = 16
+        end
         -- if data.width and data.height then
         --     local cam = cam_game
         --     local z = cam.viewport_h / (data.height * tile)
@@ -197,6 +203,11 @@ data.change_orientation = function(self, orientation)
             cam:set_zoom(z)
             cam:set_position(-math.abs((tw * tile) - cam.viewport_w / cam.scale) / 2, 0)
         end
+
+        if data.timer then
+            data.timer.x = cam_gui.viewport_w - 64
+            data.timer.y = 4
+        end
         -- end
     end
     data.orientation = orientation
@@ -208,10 +219,11 @@ function State:__get_data__()
 end
 
 local function load()
+    Timer:load()
 end
 
 local function finish()
-
+    Timer:finish()
 end
 
 ---@param self Gamestate.Game.Data
@@ -274,6 +286,14 @@ local MIN_SCALE_TO_LOW_RES = 0.3
 local function init(args)
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 
+    data.world = JM.Physics:newWorld {
+        tile = tile,
+        cellsize = tile * 4,
+    }
+    JM.GameObject:init_state(State, data.world)
+
+    State.game_objects = {}
+
     data.tilemap = TileMap:new(generic, "data/img/tilemap.png", 16)
     data.number_tilemap = TileMap:new(generic, "data/img/number_tilemap.png", 16)
 
@@ -283,6 +303,8 @@ local function init(args)
     data.height = 15 --+ 4
     data.width = 9   --+ 4
     data.mines = 20  --Utils:round(16 * 16 * 0.2)
+    data.flags = 0
+    data.time_game = 0.0
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -337,6 +359,9 @@ local function init(args)
     data.uncover_cells_protected = function()
         data:uncover_cells(data.cell_x, data.cell_y)
     end
+
+    data.timer = Timer:new()
+    State:add_object(data.timer)
 end
 
 function data:verify_victory()
@@ -590,6 +615,7 @@ data.revive = function(self)
                 self:reveal_cell(x, y)
             elseif state == Cell.explosion then
                 self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+                data.flags = data.flags + 1
             end
         end
     end
@@ -852,6 +878,7 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
                 data.number_tilemap:insert_tile(px, py, 9)
                 data.state[index] = Cell.cover
+                data.flags = data.flags - 1
                 ---
             elseif data.number_tilemap:get_id(px, py) == 10 then
                 -- SUSPICIOUS
@@ -860,6 +887,7 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
                 ---
             elseif data.state[index] == Cell.cover then
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+                data.flags = data.flags + 1
                 ---
             end
             reset_spritebatch = true
@@ -1181,19 +1209,6 @@ local function gamepadaxis(joy, axis, value)
 end
 
 local function resize(w, h)
-    local prop_x = State.x / State.dispositive_w
-    local prop_y = State.y / State.dispositive_h
-    local prop_w = State.w / State.dispositive_w
-    local prop_h = State.h / State.dispositive_h
-
-    State.w = w * prop_w
-    State.h = h * prop_h
-    State.x = w * prop_x
-    State.y = h * prop_y
-
-    State:calc_canvas_scale()
-    State.dispositive_w, State.dispositive_h = w, h
-
     if (w > h and (State.screen_h > State.screen_w or State.screen_w ~= 398
             or State.screen_h ~= 224))
     -- or (h > w and State.screen_w > State.screen_h)
@@ -1208,6 +1223,8 @@ end
 
 
 local function update(dt)
+    State:update_game_objects(dt)
+
     if data.pressing then
         data.time_click = data.time_click + dt
     end
@@ -1329,6 +1346,10 @@ local function update(dt)
             data.direction_y = 0
         end
     end
+
+    if data.gamestate == GameStates.playing then
+        data.time_game = data.time_game + dt
+    end
 end
 
 local layer_main = {
@@ -1409,24 +1430,35 @@ local layer_gui = {
         love.graphics.setColor(88 / 255, 141 / 255, 190 / 255)
         love.graphics.rectangle("fill", cam:get_viewport_in_world_coord())
 
-        lgx.push()
-        lgx.translate(cam_game.viewport_w - cam_game.viewport_x, 0)
         local font = JM.Font.current
-        font:print("Continue " .. tostring(data.continue), 20, 90)
-        -- font:print(tostring(data.dx), 20, 150)
-        local vx, vy, vw, vh = cam_game:get_viewport_in_world_coord()
-        vx = cam_game.x
-        vy = cam_game.y
-        font:print(string.format("%f\n %f\n %f\n %f", vx, vy, vw, vh), 20, 120)
+        -- do
+        --     -- lgx.push()
+        --     -- lgx.translate(cam_game.viewport_w - cam_game.viewport_x, 0)
+        --     -- font:print("Continue " .. tostring(data.continue), 20, 90)
+        --     -- -- font:print(tostring(data.dx), 20, 150)
+        --     -- local vx, vy, vw, vh = cam_game:get_viewport_in_world_coord()
+        --     -- vx = cam_game.x
+        --     -- vy = cam_game.y
+        --     -- font:print(string.format("%f\n %f\n %f\n %f", vx, vy, vw, vh), 20, 120)
 
-        font:print(data.gamestate == GameStates.victory and "Victory" or "playing", 70, 120)
+        --     -- font:print(data.gamestate == GameStates.victory and "Victory" or "playing", 70, 120)
 
-        local mx, my = State:get_mouse_position(cam_game)
-        local view = position_is_inside_board(mx, my)
-        font:print(cam_game:point_is_on_view(mx, my) and "True" or "False", 50, 66)
+        --     -- local mx, my = State:get_mouse_position(cam_game)
+        --     -- local view = position_is_inside_board(mx, my)
+        --     -- font:print(cam_game:point_is_on_view(mx, my) and "True" or "False", 50, 66)
 
-        font:print(string.format("%f %f", mx, my), 120, 10)
-        lgx.pop()
+        --     -- font:print(string.format("%f %f", mx, my), 120, 10)
+
+        --     -- lgx.pop()
+        -- end
+
+        if data.orientation == "landscape" then
+            font:print(string.format("Mines: %d", data.mines - data.flags), cam_game.viewport_w + 20, 32)
+        else
+            font:print(string.format("Mines: %d", data.mines - data.flags), 20, 4)
+        end
+
+        State:draw_game_object(cam)
     end
 }
 
