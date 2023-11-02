@@ -44,6 +44,7 @@ local cam_game = State:get_camera("cam2") --State.camera
 
 ---@enum Gamestate.Game.Modes
 local GameMode = {
+    standard = 0,
     beginner = 1,
     intermediate = 2,
     expert = 3,
@@ -169,31 +170,34 @@ data.change_orientation = function(self, orientation)
             State.screen_h
         )
 
-        local w = 10 * tile
+        local tw = 9
+        local th = 15
+
+        local w = tw * tile
         local sc = (State.screen_w - 8) / w
-        local h = 16 * tile
+        local h = th * tile
         local x = (State.screen_w - w) / 2
         local y = tile * 3
         cam_game:set_viewport(
             4,
-            16,
+            tile * 2,
             w * sc,
             h * sc
         )
 
-        if data.width and data.height then
-            if data.width <= data.height then
-                local cam = cam_game
-                local z = cam.viewport_w / (data.width * tile)
-                cam:set_zoom(z)
-                cam:set_position(0, -math.abs((data.height * tile) - cam.viewport_h / cam.scale) / 2)
-            else
-                local cam = cam_game
-                local z = cam.viewport_h / (data.height * tile)
-                cam:set_zoom(z)
-                cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
-            end
+        -- if data.width and data.height then
+        if tw <= th then
+            local cam = cam_game
+            local z = cam.viewport_w / (tw * tile)
+            cam:set_zoom(z)
+            cam:set_position(0, -math.abs((th * tile) - cam.viewport_h / cam.scale) / 2)
+        else
+            local cam = cam_game
+            local z = cam.viewport_h / (th * tile)
+            cam:set_zoom(z)
+            cam:set_position(-math.abs((tw * tile) - cam.viewport_w / cam.scale) / 2, 0)
         end
+        -- end
     end
     data.orientation = orientation
 end
@@ -276,9 +280,9 @@ local function init(args)
     data.full_tileset = data.tilemap.tile_set
     data.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
-    data.height = 16 --+ 4
-    data.width = 10  --+ 4
-    data.mines = 10  --Utils:round(16 * 16 * 0.2)
+    data.height = 15 --+ 4
+    data.width = 9   --+ 4
+    data.mines = 20  --Utils:round(16 * 16 * 0.2)
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -1190,11 +1194,15 @@ local function resize(w, h)
     State:calc_canvas_scale()
     State.dispositive_w, State.dispositive_h = w, h
 
-    if (w > h and State.screen_h > State.screen_w)
-        or (h > w and State.screen_w > State.screen_h)
+    if (w > h and (State.screen_h > State.screen_w or State.screen_w ~= 398
+            or State.screen_h ~= 224))
+    -- or (h > w and State.screen_w > State.screen_h)
     then
-        State:change_game_screen(State.screen_h, State.screen_w)
+        State:change_game_screen(398, 224)
+    elseif h > w and (State.screen_w > State.screen_h or State.screen_w ~= 224 or State.screen_h ~= 448) then
+        State:change_game_screen(224, 448)
     end
+
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 end
 

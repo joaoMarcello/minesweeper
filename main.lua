@@ -11,9 +11,15 @@ function love.load()
     lgx.setLineStyle("rough")
     love.mouse.setVisible(false)
 
-    _G.SCREEN_WIDTH = JM.Utils:round(398)
+    _G.SCREEN_WIDTH = JM.Utils:round(398) --398
     _G.SCREEN_HEIGHT = JM.Utils:round(224)
 
+
+    --[[
+        16:9
+        18:9
+        19.5:9
+    ]]
     -- SCREEN_WIDTH, SCREEN_HEIGHT = SCREEN_HEIGHT, SCREEN_WIDTH
 
     _G.SUBPIXEL = 3
@@ -41,6 +47,7 @@ function love.load()
     end
 
     fullscreen = love.window.getFullscreen()
+    SceneManager.scene:resize(lgx.getDimensions())
 end
 
 function love.textinput(t)

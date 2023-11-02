@@ -19,8 +19,8 @@ function love.conf(t)
     -- local width = 320
     -- local height = 160
     -- 948x533
-    t.window.width = 800  --948  -- The window width (number)
-    t.window.height = 600 --533 -- The window height (number)
+    t.window.width = 948  --948  -- The window width (number)
+    t.window.height = 533 --533 -- The window height (number)
     t.window.x = 32
     t.window.y = 32
     t.window.fullscreen = false         -- Enable fullscreen (boolean)
