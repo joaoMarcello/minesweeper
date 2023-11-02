@@ -34,21 +34,9 @@ State:add_camera {
     name = "cam2",
     -- border_color = Utils:get_rgba(),
 }
-local cam_gui = State.camera --State:get_camera("cam2")
--- cam_gui:set_viewport(
---     State.screen_w * 0,
---     nil,
---     State.screen_w * 1,
---     State.screen_h
--- )
+local cam_gui = State.camera              --State:get_camera("cam2")
 
 local cam_game = State:get_camera("cam2") --State.camera
--- cam_game:set_viewport(
---     8,
---     8,
---     State.screen_w * 0.75 - 16,
---     State.screen_h - 16 - 16
--- )
 
 -- cam_game:toggle_grid()
 -- cam_game:toggle_world_bounds()
@@ -165,6 +153,13 @@ data.change_orientation = function(self, orientation)
             State.screen_w * 0.75 - 16,
             State.screen_h - 16 - 16
         )
+
+        -- if data.width and data.height then
+        --     local cam = cam_game
+        --     local z = cam.viewport_h / (data.height * tile)
+        --     cam:set_zoom(z)
+        --     cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
+        -- end
         ---
     else
         cam_gui:set_viewport(
@@ -174,13 +169,33 @@ data.change_orientation = function(self, orientation)
             State.screen_h
         )
 
+        local w = 10 * tile
+        local sc = (State.screen_w - 8) / w
+        local h = 16 * tile
+        local x = (State.screen_w - w) / 2
+        local y = tile * 3
         cam_game:set_viewport(
             4,
-            State.screen_h * 0 + 16 + 8,
-            State.screen_w * 1 - 8,
-            State.screen_h - 16 * 4 - (16 + 8)
+            16,
+            w * sc,
+            h * sc
         )
+
+        if data.width and data.height then
+            if data.width <= data.height then
+                local cam = cam_game
+                local z = cam.viewport_w / (data.width * tile)
+                cam:set_zoom(z)
+                cam:set_position(0, -math.abs((data.height * tile) - cam.viewport_h / cam.scale) / 2)
+            else
+                local cam = cam_game
+                local z = cam.viewport_h / (data.height * tile)
+                cam:set_zoom(z)
+                cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
+            end
+        end
     end
+    data.orientation = orientation
 end
 --============================================================================
 
@@ -189,7 +204,6 @@ function State:__get_data__()
 end
 
 local function load()
-    data:change_orientation("portrait")
 end
 
 local function finish()
@@ -262,9 +276,9 @@ local function init(args)
     data.full_tileset = data.tilemap.tile_set
     data.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
-    data.height = 8 --+ 4
-    data.width = 8  --+ 4
-    data.mines = 10 --Utils:round(16 * 16 * 0.2)
+    data.height = 16 --+ 4
+    data.width = 10  --+ 4
+    data.mines = 10  --Utils:round(16 * 16 * 0.2)
     data.grid = setmetatable({}, meta_grid)
     data.state = setmetatable({}, meta_state)
     data.first_click = true
@@ -278,9 +292,6 @@ local function init(args)
     data.direction_x = 0
     data.direction_y = 0
     mouse.setVisible(true)
-
-
-    -- data.cam2 = State:get_camera("cam2")
 
     State:set_color(0.5, 0.5, 0.5, 1)
 
@@ -297,9 +308,9 @@ local function init(args)
     cam.min_zoom = 0.015
     cam.max_zoom = 2
 
-    local z = cam.viewport_h / (data.height * tile)
-    cam:set_zoom(z)
-    cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
+    -- local z = cam.viewport_h / (data.height * tile)
+    -- cam:set_zoom(z)
+    -- cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
 
 
     cam:keep_on_bounds()
@@ -312,9 +323,9 @@ local function init(args)
         end
     end
 
-    local mx, my = State:get_mouse_position(cam_game)
-    data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
-    data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
+    -- local mx, my = State:get_mouse_position(cam_game)
+    data.cell_x = 0 --Utils:clamp(floor(mx / tile), 0, data.width - 1)
+    data.cell_y = 0 --Utils:clamp(floor(my / tile), 0, data.height - 1)
 
     data.last_cell_x = data.cell_x
     data.last_cell_y = data.cell_y
@@ -350,6 +361,12 @@ local function keypressed(key)
         cam:toggle_grid()
         cam:toggle_world_bounds()
         cam:toggle_debug()
+    end
+    if key == 'p' then
+        local cam = cam_gui
+        cam:toggle_grid()
+        cam:toggle_world_bounds()
+        -- cam:toggle_debug()
     end
 
     if key == 'v' then
@@ -411,11 +428,6 @@ data.reveal_game = function(self)
     end
 end
 
--- local cx, cy
--- local function foo()
---     data:uncover_cells(cx, cy)
--- end
-
 ---@param self Gamestate.Game.Data
 data.uncover_cells = function(self, cellx, celly)
     if cellx < 0 or celly < 0 then return false end
@@ -461,40 +473,6 @@ data.uncover_cells = function(self, cellx, celly)
         -- self:uncover_cells(cellx, celly + 1)
         -- self:uncover_cells(cellx + 1, celly - 1)
         -- self:uncover_cells(cellx + 1, celly + 1)
-
-        -- do
-        --     if celly - 1 >= 0 then
-        --         if cellx - 1 >= 0 then
-        --             self:uncover_cells(cellx - 1, celly - 1)
-        --         end
-
-        --         self:uncover_cells(cellx, celly - 1)
-
-        --         if cellx + 1 < data.width then
-        --             self:uncover_cells(cellx + 1, celly - 1)
-        --         end
-        --     end
-
-        --     if cellx - 1 >= 0 then
-        --         self:uncover_cells(cellx - 1, celly)
-        --     end
-
-        --     if cellx + 1 < data.width then
-        --         self:uncover_cells(cellx + 1, celly)
-        --     end
-
-        --     if celly + 1 < data.height then
-        --         if cellx - 1 >= 0 then
-        --             self:uncover_cells(cellx - 1, celly + 1)
-        --         end
-
-        --         self:uncover_cells(cellx, celly + 1)
-
-        --         if cellx + 1 < data.width then
-        --             return self:uncover_cells(cellx + 1, celly + 1)
-        --         end
-        --     end
-        -- end
 
         ---
     elseif value > 0 and state ~= Cell.flag then
@@ -734,13 +712,13 @@ data.verify_chording = function(self, cellx, celly)
     local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
     local index = celly * self.width + cellx
-    local value = self.grid[index]
+    local cell_value = self.grid[index]
 
-    if value > 0 and state ~= Cell.cover then
-        local count = self:count_neighbor_flags(cellx, celly)
+    if cell_value > 0 and state ~= Cell.cover then
+        local count_flags = self:count_neighbor_flags(cellx, celly)
         local r1, r2, r3, r4, r5, r6, r7, r8
 
-        if count == value then
+        if count_flags == cell_value then
             r1 = self:reveal_cell(cellx - 1, celly - 1, true)
             r2 = self:reveal_cell(cellx, celly - 1, true)
             r3 = self:reveal_cell(cellx + 1, celly - 1, true)
@@ -787,7 +765,6 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
         return
     end
 
-    -- local mx, my = x, y
     if not mx or not my then
         mx, my = State:get_mouse_position(cam_game)
     end
@@ -795,8 +772,6 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
-    -- mx = mx - cam.viewport_x / cam.scale
-    -- my = my - cam.viewport_y / cam.scale
     local is_inside_board = position_is_inside_board(mx, my)
 
     if not is_inside_board or button > 2 then return end
@@ -832,7 +807,6 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     if not mx or not my then
         mx, my = State:get_mouse_position(cam_game)
     end
-    -- local mx, my = x, y
 
     local is_inside_board = position_is_inside_board(mx, my)
 
@@ -843,8 +817,8 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     local index = data.cell_y * data.width + data.cell_x
     local reset_spritebatch = false
     local allow_click = data.time_click < 0.5
-        -- and data.time_release <= 0.0
         and data.pressing
+    -- and data.time_release <= 0.0
 
     if data.first_click and is_inside_board and button == 1
         and state ~= Cell.flag
@@ -949,7 +923,6 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
     if not mx or not my then
         mx, my = State:get_mouse_position(cam_game)
     end
-    -- local mx, my = x, y
 
     local is_inside_board = position_is_inside_board(mx, my)
     data.cell_x = Utils:clamp(floor(mx / tile), 0, data.width - 1)
@@ -960,14 +933,9 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
         and (mouseIsDown1 or mouse.isDown(1)) and not data.chording
         and cam:point_is_on_view(mx, my)
     then
-        -- local ds = math.min((State.w - State.x) / State.screen_w,
-        --     (State.h - State.y) / State.screen_h
-        -- )
-
         local qx = State:monitor_length_to_world(dx, cam_game)
         local qy = State:monitor_length_to_world(dy, cam_game)
-        -- local qx = dx / ds / cam.scale
-        -- local qy = dy / ds / cam.scale
+
         cam:move(-qx, -qy)
 
         if math.abs(dx) > 2 or math.abs(dy) > 2 then
@@ -979,7 +947,6 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
     local mx2, my2 = cam:world_to_screen(mx, my)
     cam:set_focus(mx2, my2)
 
-    -- data.last_state = tile_to_state[data.tilemap:get_id(data.last_cell_x * tile, data.last_cell_y * tile)]
 
     if data.chording then
         if not is_inside_board then
@@ -1110,29 +1077,17 @@ local function touchmoved(id, x, y, dx, dy, pressure)
             if touch2.y < touch1.y then
                 touch1, touch2 = touch2, touch1
             end
-            -- local touch1 = data.touches[1].y < data.touches[2].y
-            --     and data.touches[1] or data.touches[2]
-
-            -- local touch2 = touch1 == data.touches[1] and data.touches[2]
-            --     or data.touches[1]
 
             local cam = cam_game
 
             local mx1, my1 = State:point_monitor_to_world(touch1.x, touch1.y, cam)
             local mx2, my2 = State:point_monitor_to_world(touch2.x, touch2.y, cam)
 
-            -- local ds = math.min((State.w - State.x) / State.screen_w,
-            --     (State.h - State.y) / State.screen_h
-            -- )
+
             local dx1 = State:monitor_length_to_world(touch1.dx, cam)
             local dy1 = State:monitor_length_to_world(touch1.dy, cam)
             local dx2 = State:monitor_length_to_world(touch2.dx, cam)
             local dy2 = State:monitor_length_to_world(touch2.dy, cam)
-
-            -- local dx1 = touch1.dx / ds / cam.scale
-            -- local dy1 = touch1.dy / ds / cam.scale
-            -- local dx2 = touch2.dx / ds / cam.scale
-            -- local dy2 = touch2.dy / ds / cam.scale
 
             local rw = math.abs(mx1 - mx2)
             local rh = math.abs(my1 - my2)
@@ -1249,14 +1204,6 @@ local function update(dt)
         data.time_click = data.time_click + dt
     end
 
-
-    -- if data.time_release > 0.0
-    --     and not mouse.isDown(1)
-    --     and not mouse.isDown(2)
-    -- then
-    --     data.time_release = Utils:clamp(data.time_release - dt, 0.0, 100.0)
-    -- end
-
     local cam = cam_game --State.camera
     local speed = 32
     local controller = JM.ControllerManager.P1
@@ -1280,7 +1227,9 @@ local function update(dt)
         end
         ---
     elseif controller.state == controller.State.joystick then
+        ---
         local mx, my = data.cell_x * tile, data.cell_y * tile
+
         controller.time_delay_button[Button.L2] = 0.1
         local tr = controller:pressing_time(Button.L2)
         if tr and tr > 0 then
