@@ -1117,13 +1117,33 @@ local function gamepadpressed(joystick, button)
     if controller:pressed(Button.A, joystick, button) then
         mousepressed(mx, my, 1, nil, nil, mx, my)
     elseif controller:pressed(Button.B, joystick, button) then
-        mousepressed(mx, my, 2, nil, nil, mx, my)
+        local id = data.number_tilemap:get_id(mx, my)
+        if id == 10 or id == 9
+            or tile_to_state[data.tilemap:get_id(mx, my)] == Cell.flag
+        then
+            mousepressed(mx, my, 2, nil, nil, mx, my)
+            mousereleased(mx, my, 2, nil, nil, mx, my)
+            data.time_click = 0
+            mousepressed(mx, my, 2, nil, nil, mx, my)
+            mousereleased(mx, my, 2, nil, nil, mx, my)
+        else
+            mousepressed(mx, my, 2, nil, nil, mx, my)
+        end
     elseif controller:pressed(Button.Y, joystick, button) then
-        mousepressed(mx, my, 2, nil, nil, mx, my)
-        mousereleased(mx, my, 2, nil, nil, mx, my)
-        data.time_click = 0
-        mousepressed(mx, my, 2, nil, nil, mx, my)
-        mousereleased(mx, my, 2, nil, nil, mx, my)
+        local id = data.number_tilemap:get_id(mx, my)
+
+        if tile_to_state[data.tilemap:get_id(mx, my)] == Cell.flag
+            or id == 9 or id == 10
+        then
+            mousepressed(mx, my, 2, nil, nil, mx, my)
+            mousereleased(mx, my, 2, nil, nil, mx, my)
+        else
+            mousepressed(mx, my, 2, nil, nil, mx, my)
+            mousereleased(mx, my, 2, nil, nil, mx, my)
+            data.time_click = 0
+            mousepressed(mx, my, 2, nil, nil, mx, my)
+            mousereleased(mx, my, 2, nil, nil, mx, my)
+        end
     end
 end
 
@@ -1148,6 +1168,19 @@ local function gamepadaxis(joy, axis, value)
     local Button = controller.Button
 
     local mx, my = data.cell_x * tile, data.cell_y * tile
+
+    -- controller.time_delay_button[Button.L2] = 0.1
+    -- local tr = controller:pressing_time(Button.L2)
+    -- if tr and tr > 0 then
+    --     cam_game:set_focus(cam_game:world_to_screen(mx + tile * 0.5, my + tile * 0.5))
+    --     wheelmoved(0, -1)
+    -- end
+    -- controller.time_delay_button[Button.R2] = 0.1
+    -- tr = controller:pressing_time(Button.R2)
+    -- if tr and tr > 0 then
+    --     cam_game:set_focus(cam_game:world_to_screen(mx + tile * 0.5, my + tile * 0.5))
+    --     wheelmoved(0, 1)
+    -- end
 end
 
 local function resize(w, h)
@@ -1202,6 +1235,21 @@ local function update(dt)
         end
         ---
     elseif controller.state == controller.State.joystick then
+        local mx, my = data.cell_x * tile, data.cell_y * tile
+        controller.time_delay_button[Button.L2] = 0.1
+        local tr = controller:pressing_time(Button.L2)
+        if tr and tr > 0 then
+            cam_game:set_focus(cam_game:world_to_screen(mx + tile * 0.5, my + tile * 0.5))
+            wheelmoved(0, -1, true)
+        end
+        controller.time_delay_button[Button.R2] = 0.1
+        tr = controller:pressing_time(Button.R2)
+        if tr and tr > 0 then
+            cam_game:set_focus(cam_game:world_to_screen(mx + tile * 0.5, my + tile * 0.5))
+            wheelmoved(0, 1, true)
+        end
+
+
         local axis_right_x = controller:pressing(Button.right_stick_x)
         if axis_right_x < -0.5 then
             cam:move(-speed * dt)
