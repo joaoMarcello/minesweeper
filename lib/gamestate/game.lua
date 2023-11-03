@@ -36,9 +36,16 @@ State:add_camera {
     name = "cam2",
     -- border_color = Utils:get_rgba(),
 }
+
+State:add_camera {
+    name = "cam3",
+}
+
 local cam_gui = State.camera              --State:get_camera("cam2")
 
 local cam_game = State:get_camera("cam2") --State.camera
+
+local cam_buttons = State:get_camera("cam3")
 
 -- cam_game:toggle_grid()
 -- cam_game:toggle_world_bounds()
@@ -316,6 +323,7 @@ local function init(args)
     data.touches_ids = {}
     data.n_touches = 0
     data.gamestate = GameStates.playing
+    data.click_state = ClickState.reveal
     data.direction_x = 0
     data.direction_y = 0
     mouse.setVisible(true)
@@ -364,6 +372,19 @@ local function init(args)
     data.timer = Timer:new()
     data.timer:lock()
     State:add_object(data.timer)
+
+    data.container = JM.GUI.Container:new {
+        x = 0, y = 0,
+        w = State.screen_w, h = State.screen_h,
+        scene = State,
+        on_focus = true,
+    }
+
+    data.bt_click = JM.GUI.Button:new {
+        x = 20, y = 20, w = 64, h = 32, on_focus = true,
+    }
+
+    data.container:add(data.bt_click)
 
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 end
@@ -797,6 +818,8 @@ function data:set_state(state)
                 end
             end
         end
+
+        self.timer:lock()
         ---
     elseif state == GameStates.dead then
         self.timer:lock()
@@ -812,6 +835,9 @@ function data:set_state(state)
 end
 
 local function mousepressed(x, y, button, istouch, presses, mx, my)
+    local px, py = State:get_mouse_position(cam_buttons)
+    data.container:mouse_pressed(px, py, button, istouch, presses)
+
     if istouch or data.gamestate == GameStates.dead then
         return
     end
@@ -853,6 +879,11 @@ end
 
 
 local function mousereleased(x, y, button, istouch, presses, mx, my)
+    data.moving = false
+
+    local px, py = State:get_mouse_position(cam_buttons)
+    data.container:mouse_released(px, py, button, istouch, presses)
+
     if istouch or data.gamestate == GameStates.dead then return end
 
     if not mx or not my then
@@ -984,7 +1015,7 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
 
-    if ((dx and math.abs(dx) > 2) or (dy and math.abs(dy) > 2))
+    if ((dx and math.abs(dx) > 1) or (dy and math.abs(dy) > 1))
         and (mouseIsDown1 or mouse.isDown(1)) and not data.chording
         and cam:point_is_on_view(mx, my)
     then
@@ -992,9 +1023,10 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
         local qy = State:monitor_length_to_world(dy, cam_game)
 
         cam:move(-qx, -qy)
+        data.moving = true
 
         if math.abs(dx) > 2 or math.abs(dy) > 2 then
-            data.time_click = 1000
+            data.time_click = 0.51 --1000
         end
     end
 
@@ -1085,7 +1117,8 @@ local function touchpressed(id, x, y, dx, dy, pressure)
 
     if data.n_touches <= 1 and data.touches_ids[id] then
         local mx, my = State:point_monitor_to_world(x, y, cam_game)
-        mousepressed(mx, my, 1, nil, nil, mx, my)
+        local bt = data.click_state == ClickState.reveal and 1 or 2
+        return mousepressed(mx, my, bt, nil, nil, mx, my)
         ---
     elseif data.n_touches == 2 then
 
@@ -1098,7 +1131,8 @@ local function touchreleased(id, x, y, dx, dy, pressure)
         data.touches_ids[id] = nil
 
         local mx, my = State:point_monitor_to_world(x, y, cam_game)
-        mousereleased(mx, my, 1, nil, nil, mx, my)
+        local bt = data.click_state == ClickState.reveal and 1 or 2
+        return mousereleased(mx, my, bt, nil, nil, mx, my)
     end
 end
 
@@ -1247,9 +1281,21 @@ end
 
 local function update(dt)
     State:update_game_objects(dt)
+    data.container:update(dt)
 
     if data.pressing then
         data.time_click = data.time_click + dt
+
+        local mx, my = data.cell_x * tile, data.cell_y * tile
+
+        if _G.TARGET == "Android" and data.time_click >= 0.6
+            and not data.moving
+            and position_is_inside_board(State:get_mouse_position(cam_game))
+            and tile_to_state[data.tilemap:get_id(mx, my)] == Cell.cover
+        then
+            data.time_click = 0
+            mousereleased(mx, my, 2, nil, nil, mx, my)
+        end
     end
 
     local cam = cam_game --State.camera
@@ -1484,6 +1530,10 @@ local layer_gui = {
             r = not r and "Error" or r
 
             font:print(tostring(r), cam_game.viewport_w + 20, 64)
+
+            r = data.click_state == ClickState.reveal and "reveal"
+            r = not r and data.click_state == ClickState.flag and "flag" or r
+            font:print(tostring(r), cam_game.viewport_w + 20, 64 + 16)
         else
             font:print(string.format("Mines: %d", data.mines - data.flags), 20, 4)
 
@@ -1491,10 +1541,23 @@ local layer_gui = {
             r = not r and data.gamestate == GameStates.dead and "dead" or r
             r = not r and data.gamestate == GameStates.victory and "victory" or r
             r = not r and "Error" or r
-            font:print(tostring(r), 20, cam_game.viewport_y + cam_game.viewport_h + 20)
+            font:print(tostring(r), 20, cam_game.viewport_y + cam_game.viewport_h)
+
+            r = data.click_state == ClickState.reveal and "reveal"
+            r = not r and data.click_state == ClickState.flag and "flag" or r
+            font:print(tostring(r), 20, cam_game.viewport_y + cam_game.viewport_h + 16)
         end
 
         State:draw_game_object(cam)
+    end
+}
+
+local layer_buttons = {
+    name = "buttons",
+    ---
+    draw = function(self, cam)
+        if cam ~= cam_buttons then return end
+        data.container:draw(cam)
     end
 }
 
@@ -1502,6 +1565,7 @@ local layers = {
     --
     layer_gui,
     layer_main,
+    layer_buttons,
     --
     --
 }

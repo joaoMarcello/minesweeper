@@ -29,7 +29,7 @@ function love.load()
     _G.SUBPIXEL = 3
     _G.TILE = 16
     _G.CANVAS_FILTER = "linear"
-    _G.TARGET = "pc"
+    _G.TARGET = "Android" --love.system.getOS()
 
     JM.Font.current:set_font_size(8)
 
