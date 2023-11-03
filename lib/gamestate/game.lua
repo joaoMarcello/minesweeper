@@ -57,6 +57,7 @@ local GameStates = {
     victory = 1,
     dead = 2,
     playing = 3,
+    resume = 4,
 }
 
 ---@enum GameState.Game.ClickState
@@ -161,13 +162,13 @@ data.change_orientation = function(self, orientation)
             data.timer.x = 320
             data.timer.y = 16
         end
-        -- if data.width and data.height then
-        --     local cam = cam_game
-        --     local z = cam.viewport_h / (data.height * tile)
-        --     cam:set_zoom(z)
-        --     cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
-        -- end
-        ---
+
+        if data.width and data.height then
+            local cam = cam_game
+            local z = cam.viewport_h / (data.height * tile)
+            cam:set_zoom(z)
+            cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
+        end
     else
         cam_gui:set_viewport(
             State.screen_w * 0,
@@ -361,6 +362,7 @@ local function init(args)
     end
 
     data.timer = Timer:new()
+    data.timer:lock()
     State:add_object(data.timer)
 
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
@@ -609,7 +611,7 @@ data.unpress_cell = function(self, cellx, celly, unpress_uncover)
 end
 
 data.revive = function(self)
-    if data.continue <= 0 then return false end
+    if self.continue <= 0 then return false end
 
     for y = 0, self.height - 1 do
         for x = 0, self.width do
@@ -622,12 +624,13 @@ data.revive = function(self)
                 self:reveal_cell(x, y)
             elseif state == Cell.explosion then
                 self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
-                data.flags = data.flags + 1
+                self.flags = self.flags + 1
             end
         end
     end
 
-    data.continue = data.continue - 1
+    self.continue = self.continue - 1
+    self:set_state(GameStates.resume)
     return true
 end
 
@@ -767,6 +770,7 @@ data.verify_chording = function(self, cellx, celly)
 
             if r1 == -1 or r2 == -1 or r3 == -1 or r4 == -1 or r5 == -1 or r6 == -1 or r7 == -1 or r8 == -1 then
                 self:reveal_game()
+                self:set_state(GameStates.dead)
                 self.tilemap:reset_spritebatch()
             end
         end
@@ -793,12 +797,22 @@ function data:set_state(state)
                 end
             end
         end
+        ---
+    elseif state == GameStates.dead then
+        self.timer:lock()
+        ---
+    elseif state == GameStates.playing then
+        ---
+    elseif state == GameStates.resume then
+        self.timer:unlock()
+        self:set_state(GameStates.playing)
+        ---
     end
     return true
 end
 
 local function mousepressed(x, y, button, istouch, presses, mx, my)
-    if istouch then
+    if istouch or data.gamestate == GameStates.dead then
         return
     end
 
@@ -839,7 +853,7 @@ end
 
 
 local function mousereleased(x, y, button, istouch, presses, mx, my)
-    if istouch then return end
+    if istouch or data.gamestate == GameStates.dead then return end
 
     if not mx or not my then
         mx, my = State:get_mouse_position(cam_game)
@@ -864,6 +878,7 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     then
         data.first_click = false
         data:build_board(data.cell_y * data.width + data.cell_x)
+        data.timer:unlock()
         reset_spritebatch = true
     end
 
@@ -903,6 +918,7 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
         elseif button == 1 then
             if data.grid[index] < 0 and state ~= Cell.flag then
                 data:reveal_game()
+                data:set_state(GameStates.dead)
 
                 data.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
                 data.number_tilemap:insert_tile(px, py)
@@ -968,7 +984,7 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
     data.cell_y = Utils:clamp(floor(my / tile), 0, data.height - 1)
 
 
-    if ((dx and math.abs(dx) > 0) or (dy and math.abs(dy) > 0))
+    if ((dx and math.abs(dx) > 2) or (dy and math.abs(dy) > 2))
         and (mouseIsDown1 or mouse.isDown(1)) and not data.chording
         and cam:point_is_on_view(mx, my)
     then
@@ -1461,8 +1477,21 @@ local layer_gui = {
 
         if data.orientation == "landscape" then
             font:print(string.format("Mines: %d", data.mines - data.flags), cam_game.viewport_w + 20, 32)
+
+            local r = data.gamestate == GameStates.playing and "playing"
+            r = not r and data.gamestate == GameStates.dead and "dead" or r
+            r = not r and data.gamestate == GameStates.victory and "victory" or r
+            r = not r and "Error" or r
+
+            font:print(tostring(r), cam_game.viewport_w + 20, 64)
         else
             font:print(string.format("Mines: %d", data.mines - data.flags), 20, 4)
+
+            local r = data.gamestate == GameStates.playing and "playing"
+            r = not r and data.gamestate == GameStates.dead and "dead" or r
+            r = not r and data.gamestate == GameStates.victory and "victory" or r
+            r = not r and "Error" or r
+            font:print(tostring(r), 20, cam_game.viewport_y + cam_game.viewport_h + 20)
         end
 
         State:draw_game_object(cam)
