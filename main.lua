@@ -3,6 +3,10 @@ local lgx = love.graphics
 local JM = require "jm-love2d-package.init"
 local SceneManager = JM.SceneManager
 
+local succes, admob = pcall(function(...)
+    return require "admob"
+end)
+
 local fullscreen
 function love.load()
     math.randomseed(os.time())
@@ -176,6 +180,12 @@ end
 function love.draw()
     SceneManager.scene:draw()
 
+    local font = JM.Font.current
+    font:push()
+    font:set_font_size(32)
+    font:set_color(JM_Utils:get_rgba(1, 0, 0))
+    font:print(succes and admob and "Loaded" or "Error", 10, 30)
+    font:pop()
     -- lgx.setColor(0, 0, 0, 0.7)
     -- lgx.rectangle("fill", 0, 0, 80, 120)
     -- lgx.setColor(1, 1, 0, 1)
