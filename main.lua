@@ -51,7 +51,7 @@ function love.load()
     end
 
     fullscreen = love.window.getFullscreen()
-    SceneManager.scene:resize(lgx.getDimensions())
+    return SceneManager.scene:resize(lgx.getDimensions())
 end
 
 function love.textinput(t)
@@ -187,7 +187,7 @@ local km = 0
 function love.update(dt)
     -- km = collectgarbage("count") / 1024.0
     JM:update(dt)
-    SceneManager.scene:update(dt)
+    return SceneManager.scene:update(dt)
 end
 
 function love.draw()

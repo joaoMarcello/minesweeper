@@ -472,7 +472,7 @@ local function keypressed(key)
 
     if key == 'v' then
         if data.orientation == "landscape" then
-            State:change_game_screen(224, 448)
+            State:change_game_screen(224, 485)
             data:change_orientation("portrait")
         else
             State:change_game_screen(398, 224)
@@ -1326,14 +1326,26 @@ local function gamepadaxis(joy, axis, value)
 end
 
 local function resize(w, h)
-    if (w > h and (State.screen_h > State.screen_w or State.screen_w ~= 398
-            or State.screen_h ~= 224))
-    then
-        State:change_game_screen(398, 224)
-        ---
-    elseif h > w and (State.screen_w > State.screen_h or State.screen_w ~= 224 or State.screen_h ~= 448) then --448
-        State:change_game_screen(224, 448)
+    local on_mobile = _G.TARGET == "Android"
+    local orientation = w > h and "landscape" or "portrait"
+
+    local dw, dh
+
+    if on_mobile then
+        if orientation == "landscape" then
+            dw, dh = 485, 224
+        else
+            dw, dh = 224, 485
+        end
+    else -- On PC
+        if orientation == "landscape" then
+            dw, dh = 398, 224
+        else
+            dw, dh = 224, 485
+        end
     end
+
+    State:change_game_screen(dw, dh)
 
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 end
