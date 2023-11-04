@@ -29,7 +29,7 @@ function love.load()
     _G.SUBPIXEL = 3
     _G.TILE = 16
     _G.CANVAS_FILTER = "linear"
-    _G.TARGET = "Android" --love.system.getOS()
+    _G.TARGET = love.system.getOS()
 
     JM.Font.current:set_font_size(8)
 
@@ -103,6 +103,19 @@ end
 function love.mousemoved(x, y, dx, dy, istouch)
     local scene = SceneManager.scene
     if scene then scene:mousemoved(x, y, dx, dy, istouch) end
+end
+
+function love.focus(f)
+    local scene = SceneManager.scene
+
+    if not f then
+        scene:pause(math.huge)
+    else
+        scene:unpause()
+        scene:resize(love.graphics.getDimensions())
+    end
+
+    if scene then return scene:focus(f) end
 end
 
 function love.wheelmoved(x, y)
