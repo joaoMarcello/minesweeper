@@ -211,7 +211,7 @@ data.change_orientation = function(self, orientation)
         local y = tile * 3
         cam_game:set_viewport(
             4,
-            tile * 2,
+            tile * 3,
             w * sc,
             h * sc
         )
@@ -234,7 +234,7 @@ data.change_orientation = function(self, orientation)
 
         if data.timer then
             data.timer.x = cam_gui.viewport_w - 64
-            data.timer.y = 4
+            data.timer.y = 16
         end
 
         if data.bt_click then
@@ -892,7 +892,7 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
 
     data.container:mouse_pressed(px, py, button, istouch, presses)
 
-    if istouch or data.gamestate == GameStates.dead then
+    if istouch or data.gamestate ~= GameStates.playing then
         return
     end
 
@@ -941,7 +941,7 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     end
     data.container:mouse_released(px, py, button, istouch, presses)
 
-    if istouch or data.gamestate == GameStates.dead then return end
+    if istouch or data.gamestate ~= GameStates.playing then return end
 
     if not mx or not my then
         mx, my = State:get_mouse_position(cam_game)
@@ -1613,7 +1613,7 @@ local layer_gui = {
             r = not r and data.click_state == ClickState.flag and "flag" or r
             font:print(tostring(r), cam_game.viewport_w + 20, 64 + 16)
         else
-            font:print(string.format("Mines: %d", data.mines - data.flags), 20, 4)
+            font:print(string.format("Mines: %d", data.mines - data.flags), 20, 16)
 
             local r = data.gamestate == GameStates.playing and "playing"
             r = not r and data.gamestate == GameStates.dead and "dead" or r

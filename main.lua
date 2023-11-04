@@ -118,6 +118,15 @@ function love.focus(f)
     if scene then return scene:focus(f) end
 end
 
+function love.visible(v)
+    local scene = SceneManager.scene
+    if v then
+        scene:unpause()
+    else
+        scene:pause(math.huge)
+    end
+end
+
 function love.wheelmoved(x, y)
     local scene = SceneManager.scene
     if scene then scene:wheelmoved(x, y) end
