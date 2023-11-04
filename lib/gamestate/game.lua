@@ -30,6 +30,7 @@ local State = JM.Scene:new {
     bound_bottom = 1366,
     cam_scale = 1,
     -- show_border = true,
+    -- use_vpad = true,
 }
 
 State:add_camera {
@@ -182,7 +183,11 @@ data.change_orientation = function(self, orientation)
         end
 
         if data.bt_click then
-            data.bt_click:set_position(cam_game.viewport_w + 20, 128)
+            data.bt_click:set_position(cam_game.viewport_w + 20, 110)
+        end
+
+        if data.bt_main then
+            data.bt_main:set_position(cam_game.viewport_w + 20, data.bt_click.bottom + 12)
         end
     else
         cam_gui:set_viewport(
@@ -230,6 +235,10 @@ data.change_orientation = function(self, orientation)
 
         if data.bt_click then
             data.bt_click:set_position(64, cam_game.viewport_y + cam_game.viewport_h + 10)
+        end
+
+        if data.bt_main then
+            data.bt_main:set_position(data.bt_click.right + 16, data.bt_click.y)
         end
         -- end
     end
@@ -396,13 +405,29 @@ local function init(args)
     }
 
     data.bt_click = JM.GUI.Button:new {
-        x = 20, y = 20, w = 64, h = 32, on_focus = true,
+        x = 20, y = 20, w = 32, h = 32, on_focus = true,
+        text = "click",
     }
-    data.bt_click:on_event("mouse_released", function()
+    data.bt_click:on_event("mouse_pressed", function()
         data.click_state = data.click_state == ClickState.reveal and ClickState.flag or ClickState.reveal
     end)
 
+    data.bt_main = JM.GUI.Button:new {
+        x = 0, y = 0, w = 32, h = 32, on_focus = true, text = "main"
+    }
+
+    data.bt_main:on_event("mouse_pressed", function()
+        if data.continue > 0 and data.gamestate == GameStates.dead then
+            data:revive()
+        else
+            State:init()
+        end
+    end)
+
+
+
     data.container:add(data.bt_click)
+    data.container:add(data.bt_main)
 
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 end
@@ -853,7 +878,13 @@ function data:set_state(state)
 end
 
 local function mousepressed(x, y, button, istouch, presses, mx, my)
+    local on_mobile = _G.TARGET == "Android"
     local px, py = State:get_mouse_position(cam_buttons)
+    if on_mobile then
+        px = mx or px
+        py = my or py
+    end
+
     data.container:mouse_pressed(px, py, button, istouch, presses)
 
     if istouch or data.gamestate == GameStates.dead then
@@ -878,11 +909,10 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
     local id = data.tilemap:get_id(px, py)
     local state = tile_to_state[id]
     local index = data.cell_y * data.width + data.cell_x
-    local on_mobile = _G.TARGET == "Android"
 
     if (button == 1 and not on_mobile and mouse.isDown(2))
         or (button == 2 and not on_mobile and mouse.isDown(1))
-        or (data.state[index] == Cell.uncover and button == 2 and state ~= Cell.flag)
+        or (data.state[index] == Cell.uncover and (button == 2 or on_mobile) and state ~= Cell.flag)
         or data.chording
     then
         data.chording = true
@@ -895,12 +925,15 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
     end
 end
 
-
-
 local function mousereleased(x, y, button, istouch, presses, mx, my)
     data.moving = false
 
+    local on_mobile = _G.TARGET == "Android"
     local px, py = State:get_mouse_position(cam_buttons)
+    if on_mobile then
+        px = mx or px
+        py = my or py
+    end
     data.container:mouse_released(px, py, button, istouch, presses)
 
     if istouch or data.gamestate == GameStates.dead then return end
@@ -1043,7 +1076,7 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
 
         cam:move(-qx, -qy)
 
-        if math.abs(dx) > 2 or math.abs(dy) > 2 then
+        if math.abs(dx) > 3 or math.abs(dy) > 3 then
             data.time_click = 0.51 --1000
             data.moving = true
         end
@@ -1139,6 +1172,7 @@ local function touchpressed(id, x, y, dx, dy, pressure)
     if data.n_touches <= 1 and data.touches_ids[id] then
         local mx, my = State:point_monitor_to_world(x, y, cam_game)
         local bt = data.click_state == ClickState.reveal and 1 or 2
+
         return mousepressed(mx, my, bt, nil, nil, mx, my)
         ---
     elseif data.n_touches == 2 then
@@ -1318,6 +1352,7 @@ local function update(dt)
             then
                 data.time_click = 0
                 mousereleased(mx, my, 2, nil, nil, mx, my)
+                love.system.vibrate(0.25)
             end
         end
 
@@ -1583,7 +1618,7 @@ local layer_buttons = {
     ---
     draw = function(self, cam)
         if cam ~= cam_buttons then return end
-        data.container:draw()
+        data.container:draw(cam)
     end
 }
 
