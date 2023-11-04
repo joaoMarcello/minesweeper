@@ -145,6 +145,10 @@ local function position_is_inside_board(x, y)
         cam_game:point_is_on_screen(x, y)
 end
 
+local vibrate = function()
+    return love.system.vibrate(0.3)
+end
+
 local generic = function()
 
 end
@@ -866,6 +870,7 @@ function data:set_state(state)
         ---
     elseif state == GameStates.dead then
         self.timer:lock()
+        vibrate()
         ---
     elseif state == GameStates.playing then
         ---
@@ -1352,7 +1357,7 @@ local function update(dt)
             then
                 data.time_click = 0
                 mousereleased(mx, my, 2, nil, nil, mx, my)
-                love.system.vibrate(0.25)
+                vibrate()
             end
         end
 
