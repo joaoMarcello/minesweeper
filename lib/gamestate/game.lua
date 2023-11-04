@@ -93,6 +93,8 @@ local tile_to_state = {
     [5] = Cell.bomb,
     [6] = Cell.explosion,
     [7] = Cell.wrong,
+    [8] = Cell.press,
+    [9] = Cell.press,
 }
 
 local state_to_tile = {
@@ -165,6 +167,8 @@ data.change_orientation = function(self, orientation)
             State.screen_h - 16 - 16
         )
 
+        cam_buttons:set_viewport(0, 0, State.screen_w, State.screen_h)
+
         if data.timer then
             data.timer.x = 320
             data.timer.y = 16
@@ -175,6 +179,10 @@ data.change_orientation = function(self, orientation)
             local z = cam.viewport_h / (data.height * tile)
             cam:set_zoom(z)
             cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
+        end
+
+        if data.bt_click then
+            data.bt_click:set_position(cam_game.viewport_w + 20, 128)
         end
     else
         cam_gui:set_viewport(
@@ -199,6 +207,9 @@ data.change_orientation = function(self, orientation)
             h * sc
         )
 
+        cam_buttons:set_viewport(0, 0, State.screen_w, State.screen_h)
+
+
         -- if data.width and data.height then
         if tw <= th then
             local cam = cam_game
@@ -215,6 +226,10 @@ data.change_orientation = function(self, orientation)
         if data.timer then
             data.timer.x = cam_gui.viewport_w - 64
             data.timer.y = 4
+        end
+
+        if data.bt_click then
+            data.bt_click:set_position(64, cam_game.viewport_y + cam_game.viewport_h + 10)
         end
         -- end
     end
@@ -375,14 +390,17 @@ local function init(args)
 
     data.container = JM.GUI.Container:new {
         x = 0, y = 0,
-        w = State.screen_w, h = State.screen_h,
+        w = 2000, h = 2000,
         scene = State,
-        on_focus = true,
+        -- on_focus = true,
     }
 
     data.bt_click = JM.GUI.Button:new {
         x = 20, y = 20, w = 64, h = 32, on_focus = true,
     }
+    data.bt_click:on_event("mouse_released", function()
+        data.click_state = data.click_state == ClickState.reveal and ClickState.flag or ClickState.reveal
+    end)
 
     data.container:add(data.bt_click)
 
@@ -860,9 +878,10 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
     local id = data.tilemap:get_id(px, py)
     local state = tile_to_state[id]
     local index = data.cell_y * data.width + data.cell_x
+    local on_mobile = _G.TARGET == "Android"
 
-    if (button == 1 and mouse.isDown(2))
-        or (button == 2 and mouse.isDown(1))
+    if (button == 1 and not on_mobile and mouse.isDown(2))
+        or (button == 2 and not on_mobile and mouse.isDown(1))
         or (data.state[index] == Cell.uncover and button == 2 and state ~= Cell.flag)
         or data.chording
     then
@@ -1023,10 +1042,10 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
         local qy = State:monitor_length_to_world(dy, cam_game)
 
         cam:move(-qx, -qy)
-        data.moving = true
 
         if math.abs(dx) > 2 or math.abs(dy) > 2 then
             data.time_click = 0.51 --1000
+            data.moving = true
         end
     end
 
@@ -1063,6 +1082,8 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
             reset_spritebatch = data:unpress_cell(data.last_cell_x, data.last_cell_y) or reset_spritebatch
 
             reset_spritebatch = data:press_cell(data.cell_x, data.cell_y) or reset_spritebatch
+
+            data.moving = true
         end
     end
 
@@ -1284,18 +1305,23 @@ local function update(dt)
     data.container:update(dt)
 
     if data.pressing then
-        data.time_click = data.time_click + dt
-
         local mx, my = data.cell_x * tile, data.cell_y * tile
-
         if _G.TARGET == "Android" and data.time_click >= 0.6
             and not data.moving
             and position_is_inside_board(State:get_mouse_position(cam_game))
-            and tile_to_state[data.tilemap:get_id(mx, my)] == Cell.cover
+            and not data.chording
         then
-            data.time_click = 0
-            mousereleased(mx, my, 2, nil, nil, mx, my)
+            local id = data.tilemap:get_id(mx, my)
+
+            if tile_to_state[id] == Cell.press
+            -- or id == 8 or id == 9
+            then
+                data.time_click = 0
+                mousereleased(mx, my, 2, nil, nil, mx, my)
+            end
         end
+
+        data.time_click = data.time_click + dt
     end
 
     local cam = cam_game --State.camera
@@ -1557,7 +1583,7 @@ local layer_buttons = {
     ---
     draw = function(self, cam)
         if cam ~= cam_buttons then return end
-        data.container:draw(cam)
+        data.container:draw()
     end
 }
 
