@@ -5,6 +5,7 @@ local Utils = JM.Utils
 local TileSet = JM.TileSet
 
 local Timer = require "lib.timer"
+local Board = require "lib.board"
 
 do
     _G.SUBPIXEL = _G.SUBPIXEL or 3
@@ -256,10 +257,12 @@ end
 
 local function load()
     Timer:load()
+    Board:load()
 end
 
 local function finish()
     Timer:finish()
+    Board:finish()
 end
 
 ---@param self Gamestate.Game.Data
@@ -371,13 +374,8 @@ local function init(args)
     cam.min_zoom = 0.015
     cam.max_zoom = 2
 
-    -- local z = cam.viewport_h / (data.height * tile)
-    -- cam:set_zoom(z)
-    -- cam:set_position(-math.abs((data.width * tile) - cam.viewport_w / cam.scale) / 2, 0)
-
 
     cam:keep_on_bounds()
-    -- cam:set_bounds(-math.huge, math.huge, -math.huge, math.huge)
 
     -- filling tilemap with cover cells
     for y = 0, data.height - 1 do
@@ -386,9 +384,8 @@ local function init(args)
         end
     end
 
-    -- local mx, my = State:get_mouse_position(cam_game)
-    data.cell_x = 0 --Utils:clamp(floor(mx / tile), 0, data.width - 1)
-    data.cell_y = 0 --Utils:clamp(floor(my / tile), 0, data.height - 1)
+    data.cell_x = 0
+    data.cell_y = 0
 
     data.last_cell_x = data.cell_x
     data.last_cell_y = data.cell_y
