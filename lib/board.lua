@@ -3,12 +3,12 @@ local TileMap = _G.JM.TileMap
 local TileSet = _G.JM.TileSet
 local Utils = _G.JM.Utils
 
-local GameStates = {
-    victory = 1,
-    dead = 2,
-    playing = 3,
-    resume = 4,
-}
+-- local GameStates = {
+--     victory = 1,
+--     dead = 2,
+--     playing = 3,
+--     resume = 4,
+-- }
 
 local Cell = {
     bomb = -1,
@@ -104,7 +104,12 @@ end
 local function generic() end
 --===========================================================================
 ---@class Board : GameObject
-local Board = setmetatable({}, GC)
+local Board = setmetatable({
+    Cell = Cell,
+    tile_to_state = tile_to_state,
+    state_to_tile = state_to_tile,
+}, GC)
+
 Board.__index = Board
 
 ---@return Board
@@ -132,7 +137,7 @@ function Board:__constructor__()
     self.state = setmetatable({}, meta_state)
     -- self.first_click = true
     -- self.continue = 2
-    self.boardstate = GameStates.playing
+    -- self.boardstate = GameStates.playing
 
     for y = 0, self.height - 1 do
         for x = 0, self.width - 1 do
