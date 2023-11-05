@@ -1,6 +1,7 @@
 local GC = _G.JM.GameObject
 local TileMap = _G.JM.TileMap
 local TileSet = _G.JM.TileSet
+local Utils = _G.JM.Utils
 
 local GameStates = {
     victory = 1,
@@ -44,12 +45,9 @@ local state_to_tile = {
 local meta_grid = { __index = function() return 0 end }
 local meta_state = { __index = function() return Cell.cover end }
 
-local MIN_SCALE_TO_LOW_RES = 0.3
 --===========================================================================
 local tile = _G.TILE
 local rand, floor = math.random, math.floor
-local mouse = love.mouse
-local lgx = love.graphics
 
 local shuffle = function(t, n)
     local N = n or #t
@@ -109,6 +107,7 @@ local function generic() end
 local Board = setmetatable({}, GC)
 Board.__index = Board
 
+---@return Board
 function Board:new(x, y, w, h, draw_order, update_order, reuse_tab)
     local obj = GC:new(x, y, w, h, draw_order, update_order, reuse_tab)
     setmetatable(obj, self)
@@ -131,8 +130,8 @@ function Board:__constructor__()
 
     self.grid = setmetatable({}, meta_grid)
     self.state = setmetatable({}, meta_state)
-    self.first_click = true
-    self.continue = 2
+    -- self.first_click = true
+    -- self.continue = 2
     self.boardstate = GameStates.playing
 
     for y = 0, self.height - 1 do
@@ -215,6 +214,11 @@ function Board:build(exception)
     end
 end
 
+function Board:cell_update(mx, my)
+    self.cell_x = Utils:clamp(floor(mx / tile), 0, self.width - 1)
+    self.cell_y = Utils:clamp(floor(my / tile), 0, self.height - 1)
+end
+
 function Board:verify_victory()
     local w, h = self.width, self.height
 
@@ -232,7 +236,7 @@ function Board:verify_victory()
 end
 
 function Board:reveal_game()
-    local has_continue = self.continue > 0
+    local has_continue = true --self.continue > 0
     -- local skip_flags = false
     local skip_mines = has_continue
 
@@ -381,7 +385,7 @@ function Board:unpress_cell(cellx, celly, unpress_uncover)
 end
 
 function Board:revive()
-    if self.continue <= 0 then return false end
+    -- if self.continue <= 0 then return false end
 
     for y = 0, self.height - 1 do
         for x = 0, self.width do
@@ -399,8 +403,8 @@ function Board:revive()
         end
     end
 
-    self.continue = self.continue - 1
-    self:set_state(GameStates.resume)
+    -- self.continue = self.continue - 1
+    -- self:set_state(GameStates.resume)
     return true
 end
 
@@ -523,49 +527,71 @@ function Board:verify_chording(cellx, celly)
 
             if r1 == -1 or r2 == -1 or r3 == -1 or r4 == -1 or r5 == -1 or r6 == -1 or r7 == -1 or r8 == -1 then
                 self:reveal_game()
-                self:set_state(GameStates.dead)
+                -- self:set_state(GameStates.dead)
                 self.tilemap:reset_spritebatch()
+                return -1
             end
         end
     end
-end
 
-function Board:set_state(state)
-    if state == self.boardstate then return false end
-    self.boardstate = state
-
-    if state == GameStates.victory then
-        for y = 0, self.height - 1 do
-            for x = 0, self.width - 1 do
-                local index = y * self.width + x
-                local id = self.tilemap:get_id(x, y)
-
-                if self.grid[index] < 0
-                    and tile_to_state[id] ~= Cell.flag
-                then
-                    local px = x * tile
-                    local py = y * tile
-                    self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
-                    self.number_tilemap:insert_tile(px, py)
-                end
-            end
-        end
-
-        -- self.timer:lock()
-        ---
-    elseif state == GameStates.dead then
-        -- self.timer:lock()
-        -- vibrate()
-        ---
-    elseif state == GameStates.playing then
-        ---
-    elseif state == GameStates.resume then
-        -- self.timer:unlock()
-        self:set_state(GameStates.playing)
-        ---
-    end
     return true
 end
+
+function Board:victory()
+    for y = 0, self.height - 1 do
+        for x = 0, self.width - 1 do
+            local index = y * self.width + x
+            local id = self.tilemap:get_id(x, y)
+
+            if self.grid[index] < 0
+                and tile_to_state[id] ~= Cell.flag
+            then
+                local px = x * tile
+                local py = y * tile
+                self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+                self.number_tilemap:insert_tile(px, py)
+            end
+        end
+    end
+end
+
+-- function Board:set_state(state)
+--     if state == self.boardstate then return false end
+--     self.boardstate = state
+
+--     if state == GameStates.victory then
+--         self:victory()
+--         -- for y = 0, self.height - 1 do
+--         --     for x = 0, self.width - 1 do
+--         --         local index = y * self.width + x
+--         --         local id = self.tilemap:get_id(x, y)
+
+--         --         if self.grid[index] < 0
+--         --             and tile_to_state[id] ~= Cell.flag
+--         --         then
+--         --             local px = x * tile
+--         --             local py = y * tile
+--         --             self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+--         --             self.number_tilemap:insert_tile(px, py)
+--         --         end
+--         --     end
+--         -- end
+
+--         -- self.timer:lock()
+--         ---
+--     elseif state == GameStates.dead then
+--         -- self.timer:lock()
+--         -- vibrate()
+--         ---
+--     elseif state == GameStates.playing then
+--         ---
+--     elseif state == GameStates.resume then
+--         -- self.timer:unlock()
+--         self:set_state(GameStates.playing)
+--         ---
+--     end
+--     return true
+-- end
 
 function Board:update(dt)
 
