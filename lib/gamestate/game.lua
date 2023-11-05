@@ -91,6 +91,7 @@ local data = {}
 
 local mouse = love.mouse
 local lgx = love.graphics
+local on_mobile = _G.TARGET == "Android"
 
 local function position_is_inside_board(x, y)
     local board = data.board
@@ -379,7 +380,7 @@ function data:set_state(state)
 end
 
 local function mousepressed(x, y, button, istouch, presses, mx, my)
-    local on_mobile = _G.TARGET == "Android"
+    -- local on_mobile = _G.TARGET == "Android"
     local px, py = State:get_mouse_position(cam_buttons)
     if on_mobile then
         px = mx or px
@@ -412,7 +413,8 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
 
     if (button == 1 and not on_mobile and mouse.isDown(2))
         or (button == 2 and not on_mobile and mouse.isDown(1))
-        or (board.state[index] == Cell.uncover and (button == 2 or on_mobile) and state ~= Cell.flag)
+        or (board.state[index] == Cell.uncover --and board.grid[index] > 0
+            and (button == 2 or on_mobile) and state ~= Cell.flag)
         or data.chording
     then
         data.chording = true
@@ -428,7 +430,7 @@ end
 local function mousereleased(x, y, button, istouch, presses, mx, my)
     data.moving = false
 
-    local on_mobile = _G.TARGET == "Android"
+    -- local on_mobile = _G.TARGET == "Android"
     local px, py = State:get_mouse_position(cam_buttons)
     if on_mobile then
         px = mx or px
@@ -556,7 +558,8 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
 
 
     if ((dx and math.abs(dx) > 1) or (dy and math.abs(dy) > 1))
-        and (mouseIsDown1 or mouse.isDown(1)) and not data.chording
+        and (mouseIsDown1 or (not on_mobile and mouse.isDown(1)))
+        and (not data.chording or on_mobile)
         and cam:point_is_on_view(mx, my)
     then
         local qx = State:monitor_length_to_world(dx, cam_game)
@@ -810,7 +813,7 @@ local function gamepadaxis(joy, axis, value)
 end
 
 local function resize(w, h)
-    local on_mobile = _G.TARGET == "Android"
+    -- local on_mobile = _G.TARGET == "Android"
     local orientation = w > h and "landscape" or "portrait"
 
     local dw, dh
@@ -825,7 +828,7 @@ local function resize(w, h)
         if orientation == "landscape" then
             dw, dh = 398, 224
         else
-            dw, dh = 224, 485
+            dw, dh = 398, 224 --485
         end
     end
 
