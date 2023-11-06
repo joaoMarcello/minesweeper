@@ -92,6 +92,7 @@ local data = {}
 local mouse = love.mouse
 local lgx = love.graphics
 local on_mobile = _G.TARGET == "Android"
+local controller = JM.ControllerManager.P1
 
 local function position_is_inside_board(x, y)
     local board = data.board
@@ -135,7 +136,7 @@ data.change_orientation = function(self, orientation)
         cam_buttons:set_viewport(0, 0, State.screen_w, State.screen_h)
 
         if data.timer then
-            data.timer.x = 320
+            data.timer.x = cam_game.viewport_w + 20
             data.timer.y = 16
         end
 
@@ -152,6 +153,15 @@ data.change_orientation = function(self, orientation)
 
         if data.bt_main then
             data.bt_main:set_position(cam_game.viewport_w + 20, data.bt_click.bottom + 12)
+        end
+
+        if data.bt_zoom_in then
+            data.bt_zoom_in:set_position(cam_game.viewport_x + cam_game.viewport_w - data.bt_zoom_in.w - 4,
+                cam_game.viewport_y + cam_game.viewport_h)
+        end
+
+        if data.bt_zoom_out then
+            data.bt_zoom_out:set_position(data.bt_zoom_in.x - data.bt_zoom_out.w - 8, data.bt_zoom_in.y)
         end
     else
         cam_gui:set_viewport(
@@ -243,7 +253,7 @@ local function init(args)
 
 
     data.continue = 2
-    data.first_click = true
+    -- data.first_click = true
     data.time_click = 0.0
     data.pressing = false
     data.touches_ids = {}
@@ -279,7 +289,7 @@ local function init(args)
     data.container = JM.GUI.Container:new {
         x = 0, y = 0,
         w = 2000, h = 2000,
-        scene = State,
+        -- scene = State,
         -- on_focus = true,
     }
 
@@ -304,8 +314,32 @@ local function init(args)
         end
     end)
 
+    data.bt_zoom_in = JM.GUI.Button:new {
+        x = 100, y = 64, w = 8, h = 8, on_focus = true, text = "zi"
+    }
+
+    data.bt_zoom_in:on_event("mouse_pressed", function()
+        cam_game:set_focus(cam_game.viewport_w * 0.5, cam_game.viewport_h * 0.5)
+        ---@diagnostic disable-next-line: undefined-field
+        State:wheelmoved(0, 1, true)
+    end)
+
+    data.bt_zoom_out = JM.GUI.Button:new {
+        x = 100, y = 64, w = 8, h = 8, on_focus = true, text = "zo"
+    }
+
+    data.bt_zoom_out:on_event("mouse_pressed", function()
+        cam_game:set_focus(cam_game.viewport_w * 0.5, cam_game.viewport_h * 0.5)
+        ---@diagnostic disable-next-line: undefined-field
+        State:wheelmoved(0, -1, true)
+    end)
+
+
+
     data.container:add(data.bt_click)
     data.container:add(data.bt_main)
+    data.container:add(data.bt_zoom_in)
+    data.container:add(data.bt_zoom_out)
 
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 end
@@ -398,39 +432,19 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
     end
 
     local board = data.board
-    board:cell_update(mx, my)
+    board:update_cell_position(mx, my)
 
     local is_inside_board = position_is_inside_board(mx, my)
 
     data.pressing = true
     if not is_inside_board or button > 2 then return end
 
-    local px = board.cell_x * tile
-    local py = board.cell_y * tile
-    local id = board.tilemap:get_id(px, py)
-    local state = tile_to_state[id]
-    local index = board.cell_y * board.width + board.cell_x
-
-    if (button == 1 and not on_mobile and mouse.isDown(2))
-        or (button == 2 and not on_mobile and mouse.isDown(1))
-        or (board.state[index] == Cell.uncover --and board.grid[index] > 0
-            and (button == 2 or on_mobile) and state ~= Cell.flag)
-        or data.chording
-    then
-        data.chording = true
-        board:press_neighbor(board.cell_x, board.cell_y)
-        ---
-    elseif button == 1 or button == 2 then
-        if board:press_cell(board.cell_x, board.cell_y) then
-            board.tilemap:reset_spritebatch()
-        end
-    end
+    board:mousepressed(x, y, button)
 end
 
 local function mousereleased(x, y, button, istouch, presses, mx, my)
     data.moving = false
 
-    -- local on_mobile = _G.TARGET == "Android"
     local px, py = State:get_mouse_position(cam_buttons)
     if on_mobile then
         px = mx or px
@@ -451,94 +465,29 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     local py = board.cell_y * tile
     local id = board.tilemap:get_id(px, py)
     local state = tile_to_state[id]
-    local index = board.cell_y * board.width + board.cell_x
-    local reset_spritebatch = false
+
     local allow_click = data.time_click < 0.5 and data.pressing
 
-    if data.first_click and is_inside_board and button == 1
+    if board.first_click and is_inside_board and button == 1
         and state ~= Cell.flag
         and allow_click
-        and not data.chording
+        and not board.chording
     then
-        data.first_click = false
         board:build(board.cell_y * board.width + board.cell_x)
         data.timer:unlock()
-        reset_spritebatch = true
     end
 
-    if data.chording then
-        board:unpress_neighbor(board.cell_x, board.cell_y)
+    local r = board:mousereleased(x, y, button, is_inside_board, allow_click)
 
-        if not data.first_click then
-            local r = board:verify_chording(board.cell_x, board.cell_y)
-
-            if r == -1 then
-                data:set_state(GameStates.dead)
-            elseif board:verify_victory() then
-                data:set_state(GameStates.victory)
-            end
-        end
-        data.chording = false
-        ---
-    elseif is_inside_board and state ~= Cell.uncover and allow_click then
-        if button == 2 then
-            if state == Cell.flag then
-                board.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                board.number_tilemap:insert_tile(px, py, 9)
-                board.state[index] = Cell.cover
-                board.flags = board.flags - 1
-                ---
-            elseif board.number_tilemap:get_id(px, py) == 10 then
-                -- SUSPICIOUS
-                board.number_tilemap:insert_tile(px, py)
-                board.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
-                ---
-            elseif board.state[index] == Cell.cover then
-                board.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
-                board.flags = board.flags + 1
-                ---
-            end
-            reset_spritebatch = true
-
-            ---
-        elseif button == 1 then
-            if board.grid[index] < 0 and state ~= Cell.flag then
-                board:reveal_game()
-                data:set_state(GameStates.dead)
-
-                board.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
-                board.number_tilemap:insert_tile(px, py)
-                ---
-            elseif state ~= Cell.flag then
-                board:unpress_cell(board.cell_x, board.cell_y)
-                local r = pcall(board.uncover_cells_protected)
-
-                if board:verify_victory() then
-                    data:set_state(GameStates.victory)
-                end
-                ---
-                ---
-            end
-
-            reset_spritebatch = true
-        end
-
-        -- data.time_release = 0.06
-
-        --
-    else
-        ---
-        reset_spritebatch = board:unpress_cell(board.cell_x, board.cell_y)
-        reset_spritebatch = board:unpress_cell(board.last_cell_x, board.last_cell_y) or reset_spritebatch
+    if r == -1 then
+        data:set_state(GameStates.dead)
+    elseif r == 1 then
+        data:set_state(GameStates.victory)
     end
 
     if data.pressing and button <= 2 then
         data.pressing = false
         data.time_click = 0.0
-    end
-
-    if reset_spritebatch then
-        board.tilemap:reset_spritebatch()
     end
 end
 
@@ -554,12 +503,12 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
 
     local is_inside_board = position_is_inside_board(mx, my)
     local board = data.board
-    board:cell_update(mx, my)
+    board:update_cell_position(mx, my)
 
 
     if ((dx and math.abs(dx) > 1) or (dy and math.abs(dy) > 1))
         and (mouseIsDown1 or (not on_mobile and mouse.isDown(1)))
-        and (not data.chording or on_mobile)
+        and (not board.chording or on_mobile)
         and cam:point_is_on_view(mx, my)
     then
         local qx = State:monitor_length_to_world(dx, cam_game)
@@ -578,7 +527,7 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
     cam:set_focus(mx2, my2)
 
 
-    if data.chording then
+    if board.chording then
         if not is_inside_board then
             board:unpress_neighbor(board.last_cell_x, board.last_cell_y)
             board:unpress_neighbor(board.cell_x, board.cell_y)
@@ -744,7 +693,7 @@ local function touchmoved(id, x, y, dx, dy, pressure)
 end
 
 local function gamepadpressed(joystick, button)
-    local controller = JM.ControllerManager.P1
+    -- local controller = JM.ControllerManager.P1
     local Button = controller.Button
 
     local board = data.board
@@ -792,7 +741,7 @@ local function gamepadpressed(joystick, button)
 end
 
 local function gamepadreleased(joystick, button)
-    local controller = JM.ControllerManager.P1
+    -- local controller = JM.ControllerManager.P1
     local Button = controller.Button
 
     local board = data.board
@@ -846,10 +795,10 @@ local function update(dt)
 
     if data.pressing then
         local mx, my = board.cell_x * tile, board.cell_y * tile
-        if _G.TARGET == "Android" and data.time_click >= 0.6
+        if _G.TARGET == "Android" and data.time_click >= 0.5
             and not data.moving
             and position_is_inside_board(State:get_mouse_position(cam_game))
-            and not data.chording
+            and not board.chording
         then
             local id = board.tilemap:get_id(mx, my)
 
@@ -867,7 +816,7 @@ local function update(dt)
 
     local cam = cam_game --State.camera
     local speed = 32
-    local controller = JM.ControllerManager.P1
+    -- local controller = JM.ControllerManager.P1
     local Button = controller.Button
 
     if controller.state == controller.State.keyboard then
@@ -994,8 +943,8 @@ local layer_main = {
         -- if cam == data.cam2 then return end
         if cam ~= cam_game then return end
 
-        love.graphics.setColor(179 / 255, 185 / 255, 209 / 255)
-        love.graphics.rectangle("fill", cam:get_viewport_in_world_coord())
+        lgx.setColor(179 / 255, 185 / 255, 209 / 255)
+        lgx.rectangle("fill", cam:get_viewport_in_world_coord())
 
         local font = JM.Font.current
 
@@ -1067,26 +1016,6 @@ local layer_gui = {
         love.graphics.rectangle("fill", cam:get_viewport_in_world_coord())
 
         local font = JM.Font.current
-        -- do
-        --     -- lgx.push()
-        --     -- lgx.translate(cam_game.viewport_w - cam_game.viewport_x, 0)
-        --     -- font:print("Continue " .. tostring(data.continue), 20, 90)
-        --     -- -- font:print(tostring(data.dx), 20, 150)
-        --     -- local vx, vy, vw, vh = cam_game:get_viewport_in_world_coord()
-        --     -- vx = cam_game.x
-        --     -- vy = cam_game.y
-        --     -- font:print(string.format("%f\n %f\n %f\n %f", vx, vy, vw, vh), 20, 120)
-
-        --     -- font:print(data.gamestate == GameStates.victory and "Victory" or "playing", 70, 120)
-
-        --     -- local mx, my = State:get_mouse_position(cam_game)
-        --     -- local view = position_is_inside_board(mx, my)
-        --     -- font:print(cam_game:point_is_on_view(mx, my) and "True" or "False", 50, 66)
-
-        --     -- font:print(string.format("%f %f", mx, my), 120, 10)
-
-        --     -- lgx.pop()
-        -- end
 
         local board = data.board
 
@@ -1103,6 +1032,7 @@ local layer_gui = {
             r = data.click_state == ClickState.reveal and "reveal"
             r = not r and data.click_state == ClickState.flag and "flag" or r
             font:print(tostring(r), cam_game.viewport_w + 20, 64 + 16)
+            ---
         else
             font:print(string.format("Mines: %d", board.mines - board.flags), 20, 16)
 

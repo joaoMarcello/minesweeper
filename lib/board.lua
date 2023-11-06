@@ -45,6 +45,8 @@ local state_to_tile = {
 local meta_grid = { __index = function() return 0 end }
 local meta_state = { __index = function() return Cell.cover end }
 
+local on_mobile = _G.TARGET == "Android"
+
 --===========================================================================
 local tile = _G.TILE
 local rand, floor = math.random, math.floor
@@ -132,6 +134,7 @@ function Board:__constructor__()
     self.mines = 20  --Utils:round(16 * 16 * 0.2)
     self.flags = 0
     self.chording = false
+    self.first_click = true
 
     self.grid = setmetatable({}, meta_grid)
     self.state = setmetatable({}, meta_state)
@@ -217,9 +220,11 @@ function Board:build(exception)
             end
         end
     end
+
+    self.first_click = false
 end
 
-function Board:cell_update(mx, my)
+function Board:update_cell_position(mx, my)
     self.cell_x = Utils:clamp(floor(mx / tile), 0, self.width - 1)
     self.cell_y = Utils:clamp(floor(my / tile), 0, self.height - 1)
 end
@@ -241,7 +246,10 @@ function Board:verify_victory()
 end
 
 function Board:reveal_game()
-    local has_continue = true --self.continue > 0
+    ---@type Gamestate.Game.Data
+    local data = self.gamestate:__get_data__()
+
+    local has_continue = data.continue > 0
     -- local skip_flags = false
     local skip_mines = has_continue
 
@@ -267,7 +275,9 @@ function Board:reveal_game()
 
                 if tile_to_state[id] == Cell.flag
                     and ((self.chording and is_neighbor) or not has_continue)
+                -- and is_neighbor
                 then
+                    self.flags = self.flags - 1
                     self.tilemap:insert_tile(px, py, state_to_tile[Cell.wrong])
                 end
             end
@@ -356,7 +366,7 @@ function Board:press_cell(cellx, celly, press_uncover)
 end
 
 function Board:unpress_cell(cellx, celly, unpress_uncover)
-    unpress_uncover = false
+    -- unpress_uncover = false
 
     if cellx < 0 or celly < 0 then return false end
     if cellx > self.width - 1 or celly > self.height - 1 then return false end
@@ -505,9 +515,10 @@ function Board:reveal_cell(cellx, celly, show_explosion)
     return true
 end
 
+---@return -1|0|1
 function Board:verify_chording(cellx, celly)
-    if cellx < 0 or celly < 0 then return false end
-    if cellx > self.width - 1 or celly > self.height - 1 then return false end
+    if cellx < 0 or celly < 0 then return 0 end
+    if cellx > self.width - 1 or celly > self.height - 1 then return 0 end
 
     local px = cellx * tile
     local py = celly * tile
@@ -539,7 +550,11 @@ function Board:verify_chording(cellx, celly)
         end
     end
 
-    return true
+    if self:verify_victory() then
+        return 1
+    end
+
+    return 0
 end
 
 function Board:victory()
@@ -560,43 +575,151 @@ function Board:victory()
     end
 end
 
--- function Board:set_state(state)
---     if state == self.boardstate then return false end
---     self.boardstate = state
+function Board:get_cell_position()
+    return self.cell_x * tile, self.cell_y * tile
+end
 
---     if state == GameStates.victory then
---         self:victory()
---         -- for y = 0, self.height - 1 do
---         --     for x = 0, self.width - 1 do
---         --         local index = y * self.width + x
---         --         local id = self.tilemap:get_id(x, y)
+function Board:set_cell_as_flag(px, py)
+    local id = self.tilemap:get_id(px, py)
+    if tile_to_state[id] ~= Cell.flag then
+        self.flags = self.flags + 1
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+        return true
+    end
+    return false
+end
 
---         --         if self.grid[index] < 0
---         --             and tile_to_state[id] ~= Cell.flag
---         --         then
---         --             local px = x * tile
---         --             local py = y * tile
---         --             self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
---         --             self.number_tilemap:insert_tile(px, py)
---         --         end
---         --     end
---         -- end
+---@return 1|-1|0
+function Board:released_button_1()
+    local px, py = self:get_cell_position()
+    local id = self.tilemap:get_id(px, py)
+    local state = tile_to_state[id]
+    local index = self.cell_y * self.width + self.cell_x
 
---         -- self.timer:lock()
---         ---
---     elseif state == GameStates.dead then
---         -- self.timer:lock()
---         -- vibrate()
---         ---
---     elseif state == GameStates.playing then
---         ---
---     elseif state == GameStates.resume then
---         -- self.timer:unlock()
---         self:set_state(GameStates.playing)
---         ---
---     end
---     return true
--- end
+    if self.grid[index] < 0 and state ~= Cell.flag then
+        self:reveal_game()
+        -- data:set_state(GameStates.dead)
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.explosion])
+        self.number_tilemap:insert_tile(px, py)
+        return -1
+        ---
+    elseif state ~= Cell.flag then
+        self:unpress_cell(self.cell_x, self.cell_y)
+        local r = pcall(self.uncover_cells_protected)
+
+        if self:verify_victory() then
+            -- data:set_state(GameStates.victory)
+            return 1
+        end
+        ---
+        ---
+    end
+    return 0
+end
+
+function Board:released_button_2()
+    local px, py = self:get_cell_position()
+    local id = self.tilemap:get_id(px, py)
+    local state = tile_to_state[id]
+    local index = self.cell_y * self.width + self.cell_x
+
+    if state == Cell.flag then
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+        self.number_tilemap:insert_tile(px, py, 9)
+        self.state[index] = Cell.cover
+        self.flags = self.flags - 1
+        return true
+        ---
+    elseif self.number_tilemap:get_id(px, py) == 10 then
+        -- SUSPICIOUS
+        self.number_tilemap:insert_tile(px, py)
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+        return true
+        ---
+    elseif self.state[index] == Cell.cover then
+        self.tilemap:insert_tile(px, py, state_to_tile[Cell.flag])
+        self.flags = self.flags + 1
+        return true
+        ---
+    end
+
+    return false
+end
+
+local mouse = love.mouse
+function Board:mousepressed(x, y, button, is_inside_board)
+    local px, py = self:get_cell_position()
+    local id = self.tilemap:get_id(px, py)
+    local state = tile_to_state[id]
+    local index = self.cell_y * self.width + self.cell_x
+
+    if (button == 1 and not on_mobile and mouse.isDown(2))
+        or (button == 2 and not on_mobile and mouse.isDown(1))
+        or (self.state[index] == Cell.uncover --and board.grid[index] > 0
+            and (button == 2 or on_mobile) and state ~= Cell.flag)
+        or self.chording
+    then
+        self.chording = true
+        self:press_neighbor(self.cell_x, self.cell_y)
+        ---
+    elseif button == 1 or button == 2 then
+        if self:press_cell(self.cell_x, self.cell_y) then
+            self.tilemap:reset_spritebatch()
+        end
+    end
+end
+
+---@return -1|1|0
+function Board:mousereleased(x, y, button, is_inside_board, allow_click)
+    local reset_spritebatch = false
+
+    local px, py = self:get_cell_position()
+    local id = self.tilemap:get_id(px, py)
+    local state = tile_to_state[id]
+    local result = 0
+
+    if self.chording then
+        self:unpress_neighbor(self.cell_x, self.cell_y)
+
+        if not self.first_click then
+            result = self:verify_chording(self.cell_x, self.cell_y)
+
+            -- if r == -1 then
+            --     data:set_state(GameStates.dead)
+            -- elseif r == 1 then
+            --     data:set_state(GameStates.victory)
+            -- end
+        end
+        self.chording = false
+        ---
+    elseif is_inside_board and state ~= Cell.uncover and allow_click then
+        if button == 2 then
+            reset_spritebatch = self:released_button_2()
+            ---
+        elseif button == 1 then
+            result = self:released_button_1()
+
+            -- if r == -1 then
+            --     data:set_state(GameStates.dead)
+            -- elseif r == 1 then
+            --     data:set_state(GameStates.victory)
+            -- end
+
+            reset_spritebatch = true
+        end
+        --
+    else
+        ---
+        reset_spritebatch = self:unpress_cell(self.cell_x, self.cell_y)
+        reset_spritebatch = self:unpress_cell(self.last_cell_x, self.last_cell_y) or reset_spritebatch
+    end
+
+    if reset_spritebatch then
+        self.tilemap:reset_spritebatch()
+    end
+
+    return result
+end
 
 function Board:update(dt)
 
