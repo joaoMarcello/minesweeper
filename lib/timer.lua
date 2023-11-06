@@ -15,23 +15,17 @@ local Timer = setmetatable({}, GC)
 Timer.__index = Timer
 
 ---@return Timer
-function Timer:new()
+function Timer:new(time_in_sec)
     local obj = GC:new(320, 0, 64, 32, 50)
     setmetatable(obj, self)
-    Timer.__constructor__(obj)
+    Timer.__constructor__(obj, time_in_sec)
     return obj
 end
 
-function Timer:__constructor__()
-    self.time_in_sec = 0 --60 * 1 + 30
+function Timer:__constructor__(time_in_sec)
+    self.time_in_sec = time_in_sec or 0
     self.speed = 1.0
     self.acumulator = 0.0
-
-    -- self.x = 32 * 16
-    -- self.y = 32 * 3
-
-    -- self.ox = (32 * 5) / 2
-    -- self.oy = 32 + 16
 
     self.__lock = false
 
@@ -142,14 +136,8 @@ function Timer:update(dt)
     end
 
     if not self.__lock then
-        -- self.last_time = math.floor(self.time_in_sec)
-
         self.time_in_sec = self.time_in_sec + dt
         if self.time_in_sec < 0 then self.time_in_sec = 0 end
-
-        -- if self.last_time ~= math.floor(self.time_in_sec) then
-
-        -- end
     end
 end
 
@@ -158,7 +146,6 @@ function Timer:my_draw()
 
     font:push()
     font:set_color(color_yellow)
-    -- font:set_font_size(28)
     local sm = string_format("%02d:%02d:%02d", min, sec, dec)
     font:print(sm, self.x, self.y)
     font:pop()
@@ -166,15 +153,6 @@ end
 
 function Timer:draw()
     GC.draw(self, Timer.my_draw)
-
-    -- font:push()
-    -- font:set_color(color_white)
-    -- font:set_font_size(font.__font_size - 6)
-    -- font:print("TIME",
-    --     self.x,
-    --     self.y + 32 - font.__font_size - font.__line_space
-    -- )
-    -- font:pop()
 end
 
 return Timer

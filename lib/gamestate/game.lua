@@ -239,7 +239,7 @@ function data:load_game()
         ---@type any
         local gamedata = Loader.loadxp(dir)
         gamedata = Loader.ser.unpack(gamedata)
-        self.save_table = gamedata
+        -- self.save_table = gamedata
         return gamedata
     end
 end
@@ -269,9 +269,6 @@ local function init(args)
 
     local gamedata = data:load_game()
     data.board = Board:new(gamedata)
-
-    data.time_game = 0.0
-
 
     data.continue = 2
     data.time_click = 0.0
@@ -358,6 +355,13 @@ local function init(args)
     data.container:add(data.bt_zoom_out)
 
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
+end
+
+function data:get_save_data()
+    return {
+        continue = self.continue,
+        time = self.timer.time_in_sec,
+    }
 end
 
 local function textinput(t)
@@ -513,7 +517,7 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     end
 
     if not board.first_click and data.timer.__lock and is_inside_board
-        and allow_click and (pos_state ~= prev_state or r == 2)
+        and allow_click and (pos_state ~= prev_state or r == 2) and data.gamestate == GameStates.playing
     then
         data.timer:unlock()
     end
@@ -959,10 +963,6 @@ local function update(dt)
             data.direction_y = 0
         end
     end
-
-    if data.gamestate == GameStates.playing then
-        data.time_game = data.time_game + dt
-    end
 end
 
 local layer_main = {
@@ -1088,9 +1088,9 @@ local layer_buttons = {
 
         local font = JM.Font.current
 
-        if data.save_table then
-            font:print(tostring(data.save_table.width), 64, 64)
-        end
+        -- if data.save_table then
+        --     font:print(tostring(data.save_table.width), 64, 64)
+        -- end
     end
 }
 
