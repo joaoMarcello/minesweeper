@@ -18,6 +18,7 @@ local Cell = {
     uncover = -6,
     explosion = -7,
     wrong = -9,
+    suspicious = -10,
 }
 
 local tile_to_state = {
@@ -115,32 +116,30 @@ local Board = setmetatable({
 Board.__index = Board
 
 ---@return Board
-function Board:new(x, y, w, h, draw_order, update_order, reuse_tab)
-    local obj = GC:new(x, y, w, h, draw_order, update_order, reuse_tab)
+function Board:new(args)
+    local obj = GC:new()
     setmetatable(obj, self)
-    Board.__constructor__(obj)
+    Board.__constructor__(obj, args)
     return obj
 end
 
-function Board:__constructor__()
+---@param args Board.SaveData|nil
+function Board:__constructor__(args)
     self.tilemap = TileMap:new(generic, "data/img/tilemap.png", 16)
     self.number_tilemap = TileMap:new(generic, "data/img/number_tilemap.png", 16)
 
     self.full_tileset = self.tilemap.tile_set
     self.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
 
-    self.height = 15 --+ 4
-    self.width = 9   --+ 4
-    self.mines = 20  --Utils:round(16 * 16 * 0.2)
+    self.height = args and args.height or 15 --+ 4
+    self.width = args and args.width or 9    --+ 4
+    self.mines = args and args.mines or 20   --Utils:round(16 * 16 * 0.2)
     self.flags = 0
     self.chording = false
     self.first_click = true
 
     self.grid = setmetatable({}, meta_grid)
     self.state = setmetatable({}, meta_state)
-    -- self.first_click = true
-    -- self.continue = 2
-    -- self.boardstate = GameStates.playing
 
     for y = 0, self.height - 1 do
         for x = 0, self.width - 1 do
@@ -158,6 +157,9 @@ function Board:__constructor__()
         self:uncover_cells(self.cell_x, self.cell_y)
     end
 
+    if args then
+        self:build(nil, args)
+    end
     --
     self.update = Board.update
     self.draw = Board.draw
@@ -171,28 +173,35 @@ function Board:init()
 
 end
 
-function Board:build(exception)
-    local t = {}
-    local N = self.height * self.width
-    for i = 0, N - 1 do
-        t[i + 1] = i
-    end
-    -- math.randomseed(3)
-    shuffle(t, N)
+---@param save_data Board.SaveData|nil
+function Board:build(exception, save_data)
+    self.first_click = false
 
-    local mines_pos = {}
-    local i = 0
-    local j = 1
-    while i < self.mines do
-        local cell = t[j]
-        if not cell then break end
+    local mines_pos = save_data and save_data.mines_pos
 
-        if cell ~= exception then
-            -- mines_pos[t[i + 1]] = true
-            mines_pos[cell] = true
-            i = i + 1
+    if not mines_pos then
+        local t = {}
+        local N = self.height * self.width
+        for i = 0, N - 1 do
+            t[i + 1] = i
         end
-        j = j + 1
+        -- math.randomseed(3)
+        shuffle(t, N)
+
+        mines_pos = {}
+        local i = 0
+        local j = 1
+        while i < self.mines do
+            local cell = t[j]
+            if not cell then break end
+
+            if exception and cell ~= exception then
+                -- mines_pos[t[i + 1]] = true
+                mines_pos[cell] = true
+                i = i + 1
+            end
+            j = j + 1
+        end
     end
 
     for y = 0, self.height - 1 do
@@ -200,7 +209,6 @@ function Board:build(exception)
             local index = (y * self.width) + x
             local px = tile * x
             local py = tile * y
-            -- local id =
             local state = tile_to_state[self.tilemap:get_id(px, py)]
 
             if state ~= Cell.flag then
@@ -221,7 +229,66 @@ function Board:build(exception)
         end
     end
 
-    self.first_click = false
+    if save_data then
+        for y = 0, self.height - 1 do
+            for x = 0, self.width - 1 do
+                local index = (y * self.width) + x
+                local px = tile * x
+                local py = tile * y
+
+                local s = save_data.cell_state[index]
+
+                if s == Cell.flag then
+                    self:set_cell_as_flag(px, py)
+                elseif s == Cell.uncover then
+                    self:reveal_cell(x, y)
+                    ---
+                elseif s == Cell.suspicious then
+                    self:set_cell_as_suspicious(px, py)
+                    ---
+                end
+            end
+        end
+    end
+
+    self.tilemap:reset_spritebatch()
+    self.number_tilemap:reset_spritebatch()
+
+    self.mines_pos = mines_pos
+end
+
+---@alias Board.SaveData {width:number, height:number, mines:number, mines_pos:table, cell_state:table }
+
+---@return Board.SaveData
+function Board:get_save_data()
+    local cell_state = {}
+    local tilemap = self.tilemap
+    local w, h = self.width, self.height
+
+    for y = 0, h - 1 do
+        for x = 0, w - 1 do
+            local px, py = x * tile, y * tile
+            local id = tilemap:get_id(px, py)
+            local index = y * w + x
+            local state = tile_to_state[id]
+
+            if state == Cell.flag then
+                cell_state[index] = Cell.flag
+            elseif self.state[index] == Cell.uncover then
+                cell_state[index] = Cell.uncover
+            elseif self.number_tilemap:get_id(px, py) == 9 then
+                cell_state[index] = Cell.suspicious
+            end
+        end
+    end
+
+    return {
+        width = w,
+        height = h,
+        mines = self.mines,
+        mines_pos = self.mines_pos,
+        cell_state = cell_state
+    }
 end
 
 function Board:update_cell_position(mx, my)
@@ -400,8 +467,6 @@ function Board:unpress_cell(cellx, celly, unpress_uncover)
 end
 
 function Board:revive()
-    -- if self.continue <= 0 then return false end
-
     for y = 0, self.height - 1 do
         for x = 0, self.width do
             local px = x * tile
@@ -417,9 +482,6 @@ function Board:revive()
             end
         end
     end
-
-    -- self.continue = self.continue - 1
-    -- self:set_state(GameStates.resume)
     return true
 end
 
@@ -515,7 +577,7 @@ function Board:reveal_cell(cellx, celly, show_explosion)
     return true
 end
 
----@return -1|0|1
+---@return -1|0|1|2
 function Board:verify_chording(cellx, celly)
     if cellx < 0 or celly < 0 then return 0 end
     if cellx > self.width - 1 or celly > self.height - 1 then return 0 end
@@ -526,6 +588,7 @@ function Board:verify_chording(cellx, celly)
     local state = tile_to_state[id]
     local index = celly * self.width + cellx
     local cell_value = self.grid[index]
+    local r = 0
 
     if cell_value > 0 and state ~= Cell.cover then
         local count_flags = self:count_neighbor_flags(cellx, celly)
@@ -543,9 +606,10 @@ function Board:verify_chording(cellx, celly)
 
             if r1 == -1 or r2 == -1 or r3 == -1 or r4 == -1 or r5 == -1 or r6 == -1 or r7 == -1 or r8 == -1 then
                 self:reveal_game()
-                -- self:set_state(GameStates.dead)
                 self.tilemap:reset_spritebatch()
                 return -1
+            else
+                r = 2
             end
         end
     end
@@ -554,7 +618,7 @@ function Board:verify_chording(cellx, celly)
         return 1
     end
 
-    return 0
+    return r
 end
 
 function Board:victory()
@@ -624,6 +688,7 @@ function Board:released_button_2()
     local index = self.cell_y * self.width + self.cell_x
 
     if state == Cell.flag then
+        -- turning into suspicious
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
         self.number_tilemap:insert_tile(px, py, 9)
         self.state[index] = Cell.cover
@@ -631,7 +696,7 @@ function Board:released_button_2()
         return true
         ---
     elseif self.number_tilemap:get_id(px, py) == 10 then
-        -- SUSPICIOUS
+        -- SUSPICIOUS turning into cover
         self.number_tilemap:insert_tile(px, py)
         self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
         return true
@@ -644,6 +709,11 @@ function Board:released_button_2()
     end
 
     return false
+end
+
+function Board:set_cell_as_suspicious(px, py)
+    self.tilemap:insert_tile(px, py, state_to_tile[Cell.cover])
+    self.number_tilemap:insert_tile(px, py, 9)
 end
 
 local mouse = love.mouse
@@ -669,7 +739,7 @@ function Board:mousepressed(x, y, button, is_inside_board)
     end
 end
 
----@return -1|1|0
+---@return -1|1|0|2
 function Board:mousereleased(x, y, button, is_inside_board, allow_click)
     local reset_spritebatch = false
 
@@ -683,12 +753,6 @@ function Board:mousereleased(x, y, button, is_inside_board, allow_click)
 
         if not self.first_click then
             result = self:verify_chording(self.cell_x, self.cell_y)
-
-            -- if r == -1 then
-            --     data:set_state(GameStates.dead)
-            -- elseif r == 1 then
-            --     data:set_state(GameStates.victory)
-            -- end
         end
         self.chording = false
         ---
@@ -698,13 +762,6 @@ function Board:mousereleased(x, y, button, is_inside_board, allow_click)
             ---
         elseif button == 1 then
             result = self:released_button_1()
-
-            -- if r == -1 then
-            --     data:set_state(GameStates.dead)
-            -- elseif r == 1 then
-            --     data:set_state(GameStates.victory)
-            -- end
-
             reset_spritebatch = true
         end
         --

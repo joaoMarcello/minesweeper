@@ -3,6 +3,7 @@ local JM = _G.JM_Package
 local TileMap = JM.TileMap
 local Utils = JM.Utils
 local TileSet = JM.TileSet
+local Loader = JM.Ldr
 
 local Timer = require "lib.timer"
 local Board = require "lib.board"
@@ -224,6 +225,25 @@ function State:__get_data__()
     return data
 end
 
+function data:save_game()
+    ---@type any
+    local gamedata = self.board:get_save_data()
+    gamedata = Loader.ser.pack(gamedata)
+
+    Loader:savexp(gamedata, "savegame.dat")
+end
+
+function data:load_game()
+    local dir = "savegame.dat"
+    if love.filesystem.getInfo(dir) then
+        ---@type any
+        local gamedata = Loader.loadxp(dir)
+        gamedata = Loader.ser.unpack(gamedata)
+        self.save_table = gamedata
+        return gamedata
+    end
+end
+
 local function load()
     Timer:load()
     Board:load()
@@ -247,13 +267,13 @@ local function init(args)
 
     State.game_objects = {}
 
-    data.board = Board:new()
+    local gamedata = data:load_game()
+    data.board = Board:new(gamedata)
 
     data.time_game = 0.0
 
 
     data.continue = 2
-    -- data.first_click = true
     data.time_click = 0.0
     data.pressing = false
     data.touches_ids = {}
@@ -278,8 +298,6 @@ local function init(args)
     cam.scale = 1
     cam.min_zoom = 0.015
     cam.max_zoom = 2
-
-
     cam:keep_on_bounds()
 
     data.timer = Timer:new()
@@ -334,8 +352,6 @@ local function init(args)
         State:wheelmoved(0, -1, true)
     end)
 
-
-
     data.container:add(data.bt_click)
     data.container:add(data.bt_main)
     data.container:add(data.bt_zoom_in)
@@ -377,7 +393,10 @@ local function keypressed(key)
     end
 
     if key == 'r' then
-        data.board:revive()
+        -- data.board:revive()
+        data:save_game()
+    elseif key == 't' then
+        data:load_game()
     end
 
     if key == 'u' then
@@ -477,7 +496,10 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
         data.timer:unlock()
     end
 
+    local index = board.cell_y * board.width + board.cell_x
+    local prev_state = board.state[index]
     local r = board:mousereleased(x, y, button, is_inside_board, allow_click)
+    local pos_state = board.state[index]
 
     if r == -1 then
         data:set_state(GameStates.dead)
@@ -488,6 +510,12 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     if data.pressing and button <= 2 then
         data.pressing = false
         data.time_click = 0.0
+    end
+
+    if not board.first_click and data.timer.__lock and is_inside_board
+        and allow_click and (pos_state ~= prev_state or r == 2)
+    then
+        data.timer:unlock()
     end
 end
 
@@ -1057,6 +1085,12 @@ local layer_buttons = {
     draw = function(self, cam)
         if cam ~= cam_buttons then return end
         data.container:draw(cam)
+
+        local font = JM.Font.current
+
+        if data.save_table then
+            font:print(tostring(data.save_table.width), 64, 64)
+        end
     end
 }
 
