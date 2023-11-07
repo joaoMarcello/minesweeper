@@ -115,6 +115,7 @@ local Board = setmetatable({
 
 Board.__index = Board
 
+---@param args Board.SaveData|nil
 ---@return Board
 function Board:new(args)
     local obj = GC:new()
@@ -195,7 +196,7 @@ function Board:build(exception, save_data)
             local cell = t[j]
             if not cell then break end
 
-            if exception and cell ~= exception then
+            if cell ~= exception then
                 -- mines_pos[t[i + 1]] = true
                 mines_pos[cell] = true
                 i = i + 1

@@ -54,7 +54,7 @@ local cam_buttons = State:get_camera("cam3")
 -- cam_game:toggle_world_bounds()
 -- cam_game:toggle_debug()
 
----@enum Gamestate.Game.Modes
+---@enum GameState.Game.Modes
 local GameMode = {
     standard = 0,
     beginner = 1,
@@ -63,6 +63,7 @@ local GameMode = {
     custom = 4,
 }
 
+---@enum GameState.Game.States
 local GameStates = {
     victory = 1,
     dead = 2,
@@ -225,22 +226,33 @@ function State:__get_data__()
     return data
 end
 
-function data:save_game()
-    ---@type any
-    local gamedata = self.board:get_save_data()
-    gamedata = Loader.ser.pack(gamedata)
+---@alias Gamestate.Game.SaveData {continue:number, time:number, gamemode:GameState.Game.Modes}
 
-    Loader:savexp(gamedata, "savegame.dat")
+---@return Gamestate.Game.SaveData
+function data:get_save_data()
+    return {
+        continue = self.continue,
+        time = self.timer.time_in_sec,
+        gamemode = self.gamemode,
+    }
 end
 
+---@alias GameState.Game.LoadData {board:Board.SaveData, game:Gamestate.Game.SaveData}
+
+function data:save_game()
+    local save_data = Loader.ser.pack {
+        board = self.board:get_save_data(),
+        game = self:get_save_data(),
+    }
+
+    return Loader:savexp(save_data, "save.dat")
+end
+
+---@return GameState.Game.LoadData|nil
 function data:load_game()
-    local dir = "savegame.dat"
+    local dir = "save.dat"
     if love.filesystem.getInfo(dir) then
-        ---@type any
-        local gamedata = Loader.loadxp(dir)
-        gamedata = Loader.ser.unpack(gamedata)
-        -- self.save_table = gamedata
-        return gamedata
+        return Loader.ser.unpack(Loader.loadxp(dir))
     end
 end
 
@@ -256,6 +268,7 @@ end
 
 local MIN_SCALE_TO_LOW_RES = 0.3
 
+---@param args GameState.Game.LoadData|nil
 local function init(args)
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 
@@ -267,10 +280,14 @@ local function init(args)
 
     State.game_objects = {}
 
-    local gamedata = data:load_game()
-    data.board = Board:new(gamedata)
+    -- local save_data = data:load_game()
 
-    data.continue = 2
+    data.board = Board:new(args and args.board)
+
+    local game_data = args and args.game
+
+    data.continue = game_data and game_data.continue or 2
+    data.gamemode = game_data and game_data.gamemode or GameMode.standard
     data.time_click = 0.0
     data.pressing = false
     data.touches_ids = {}
@@ -297,7 +314,7 @@ local function init(args)
     cam.max_zoom = 2
     cam:keep_on_bounds()
 
-    data.timer = Timer:new()
+    data.timer = Timer:new(game_data and game_data.time)
     data.timer:lock()
     State:add_object(data.timer)
 
@@ -325,7 +342,8 @@ local function init(args)
             data.board:revive()
             data:set_state(GameStates.resume)
         else
-            State:init()
+            local save = data:load_game()
+            State:init(save)
         end
     end)
 
@@ -357,12 +375,7 @@ local function init(args)
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 end
 
-function data:get_save_data()
-    return {
-        continue = self.continue,
-        time = self.timer.time_in_sec,
-    }
-end
+
 
 local function textinput(t)
 
@@ -436,10 +449,10 @@ function data:set_state(state)
     return true
 end
 
-local function mousepressed(x, y, button, istouch, presses, mx, my)
+local function mousepressed(x, y, button, istouch, presses, mx, my, __is_touch__)
     -- local on_mobile = _G.TARGET == "Android"
     local px, py = State:get_mouse_position(cam_buttons)
-    if on_mobile then
+    if __is_touch__ then
         px = mx or px
         py = my or py
     end
@@ -465,11 +478,11 @@ local function mousepressed(x, y, button, istouch, presses, mx, my)
     board:mousepressed(x, y, button)
 end
 
-local function mousereleased(x, y, button, istouch, presses, mx, my)
+local function mousereleased(x, y, button, istouch, presses, mx, my, __is_touch__)
     data.moving = false
 
     local px, py = State:get_mouse_position(cam_buttons)
-    if on_mobile then
+    if __is_touch__ then
         px = mx or px
         py = my or py
     end
@@ -517,13 +530,15 @@ local function mousereleased(x, y, button, istouch, presses, mx, my)
     end
 
     if not board.first_click and data.timer.__lock and is_inside_board
-        and allow_click and (pos_state ~= prev_state or r == 2) and data.gamestate == GameStates.playing
+        -- and (allow_click or board.chording)
+        and (pos_state ~= prev_state or r == 2)
+        and data.gamestate == GameStates.playing
     then
         data.timer:unlock()
     end
 end
 
-local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx, my)
+local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx, my, __is_touch__)
     if istouch then return end
 
     local reset_spritebatch = false
@@ -539,8 +554,8 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
 
 
     if ((dx and math.abs(dx) > 1) or (dy and math.abs(dy) > 1))
-        and (mouseIsDown1 or (not on_mobile and mouse.isDown(1)))
-        and (not board.chording or on_mobile)
+        and (mouseIsDown1 or (not __is_touch__ and mouse.isDown(1)))
+        and (not board.chording or __is_touch__)
         and cam:point_is_on_view(mx, my)
     then
         local qx = State:monitor_length_to_world(dx, cam_game)
@@ -647,7 +662,7 @@ local function touchpressed(id, x, y, dx, dy, pressure)
         local mx, my = State:point_monitor_to_world(x, y, cam_game)
         local bt = data.click_state == ClickState.reveal and 1 or 2
 
-        return mousepressed(mx, my, bt, nil, nil, mx, my)
+        return mousepressed(mx, my, bt, nil, nil, mx, my, true)
         ---
     elseif data.n_touches == 2 then
 
@@ -661,7 +676,7 @@ local function touchreleased(id, x, y, dx, dy, pressure)
 
         local mx, my = State:point_monitor_to_world(x, y, cam_game)
         local bt = data.click_state == ClickState.reveal and 1 or 2
-        return mousereleased(mx, my, bt, nil, nil, mx, my)
+        return mousereleased(mx, my, bt, nil, nil, mx, my, true)
     end
 end
 
@@ -679,7 +694,7 @@ local function touchmoved(id, x, y, dx, dy, pressure)
         -- only move the board if exactly one touch is active
         if data.n_touches == 1 then
             local mx, my = State:point_monitor_to_world(x, y, cam_game)
-            mousemoved(mx, my, dx, dy, nil, true, nil, mx, my)
+            mousemoved(mx, my, dx, dy, nil, true, nil, mx, my, true)
             ---
         elseif data.n_touches == 2 then
             local touch1, touch2
@@ -1060,6 +1075,8 @@ local layer_gui = {
             r = data.click_state == ClickState.reveal and "reveal"
             r = not r and data.click_state == ClickState.flag and "flag" or r
             font:print(tostring(r), cam_game.viewport_w + 20, 64 + 16)
+
+            font:print(tostring(data.continue), cam_game.viewport_w + 20, 64 + 32)
             ---
         else
             font:print(string.format("Mines: %d", board.mines - board.flags), 20, 16)
