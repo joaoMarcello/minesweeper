@@ -105,6 +105,9 @@ local function is_flag(self, cellx, celly)
 end
 
 local function generic() end
+
+local imgs
+
 --===========================================================================
 ---@class Board : GameObject
 local Board = setmetatable({

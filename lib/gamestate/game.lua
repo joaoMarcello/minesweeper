@@ -95,6 +95,7 @@ local mouse = love.mouse
 local lgx = love.graphics
 local on_mobile = _G.TARGET == "Android"
 local controller = JM.ControllerManager.P1
+local imgs
 
 local function position_is_inside_board(x, y)
     local board = data.board
@@ -210,11 +211,28 @@ data.change_orientation = function(self, orientation)
         end
 
         if data.bt_click then
-            data.bt_click:set_position(64, cam_game.viewport_y + cam_game.viewport_h + 10)
+            data.bt_click:set_position(
+                cam_gui.viewport_w - data.bt_click.w - tile * 2,
+                cam_game.viewport_y + cam_game.viewport_h + tile
+            )
         end
 
         if data.bt_main then
-            data.bt_main:set_position(data.bt_click.right + 16, data.bt_click.y)
+            local r = cam_gui.viewport_h - (cam_game.viewport_y + cam_game.viewport_h)
+
+            data.bt_main:set_position(
+                cam_gui.viewport_w / 2 - data.bt_main.w / 2,
+                cam_game.viewport_y + cam_game.viewport_h + r / 2 - data.bt_main.h / 2
+            )
+        end
+
+        if data.bt_zoom_in then
+            data.bt_zoom_in:set_position(cam_game.viewport_x + cam_game.viewport_w - data.bt_zoom_in.w - 4,
+                cam_game.viewport_y + cam_game.viewport_h + 2)
+        end
+
+        if data.bt_zoom_out then
+            data.bt_zoom_out:set_position(data.bt_zoom_in.x - data.bt_zoom_out.w - 16, data.bt_zoom_in.y)
         end
         -- end
     end
@@ -259,6 +277,9 @@ end
 local function load()
     Timer:load()
     Board:load()
+    imgs = imgs or {
+        ["button_main"] = love.graphics.newImage("data/img/main_button.png"),
+    }
 end
 
 local function finish()
@@ -334,7 +355,7 @@ local function init(args)
     end)
 
     data.bt_main = JM.GUI.Button:new {
-        x = 0, y = 0, w = 32, h = 32, on_focus = true, text = "main"
+        x = 0, y = 0, w = tile * 3, h = tile * 3, on_focus = true, text = "main"
     }
 
     data.bt_main:on_event("mouse_pressed", function()
@@ -346,6 +367,12 @@ local function init(args)
             State:init(save)
         end
     end)
+
+    ---@diagnostic disable-next-line: inject-field
+    data.bt_main.__custom_draw__ = function(self)
+        local img = imgs["button_main"]
+        lgx.draw(img, self.x, self.y, 0, 1, 1, 0, 0)
+    end
 
     data.bt_zoom_in = JM.GUI.Button:new {
         x = 100, y = 64, w = 8, h = 8, on_focus = true, text = "zi"
