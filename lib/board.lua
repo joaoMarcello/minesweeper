@@ -46,7 +46,7 @@ local state_to_tile = {
 local meta_grid = { __index = function() return 0 end }
 local meta_state = { __index = function() return Cell.cover end }
 
-local on_mobile = _G.TARGET == "Android"
+-- local on_mobile = _G.TARGET == "Android" or _G.TARGET == "iOS"
 
 --===========================================================================
 local tile = _G.TILE
@@ -132,10 +132,14 @@ function Board:__constructor__(args)
     self.tilemap = TileMap:new(generic, "data/img/tilemap.png", 16)
     self.number_tilemap = TileMap:new(generic, "data/img/number_tilemap.png", 16)
 
-    self.full_tileset = self.tilemap.tile_set
-    self.low_tileset = TileSet:new("data/img/tilemap-low.png", 16)
+    self.tilemap.tile_set.img:setFilter("linear", "nearest")
+    self.number_tilemap.tile_set.img:setFilter("linear", "nearest")
 
-    self.height = args and args.height or 15 --+ 4
+    self.full_tileset_img = self.tilemap.tile_set.img
+    self.low_tileset_img = love.graphics.newImage("data/img/tilemap-low.png")
+    self.low_tileset_img:setFilter("linear", "nearest")
+
+    self.height = args and args.height or 16 --+ 4
     self.width = args and args.width or 9    --+ 4
     self.mines = args and args.mines or 20   --Utils:round(16 * 16 * 0.2)
     self.flags = 0
@@ -721,16 +725,16 @@ function Board:set_cell_as_suspicious(px, py)
 end
 
 local mouse = love.mouse
-function Board:mousepressed(x, y, button, is_inside_board)
+function Board:mousepressed(x, y, button, is_touch)
     local px, py = self:get_cell_position()
     local id = self.tilemap:get_id(px, py)
     local state = tile_to_state[id]
     local index = self.cell_y * self.width + self.cell_x
 
-    if (button == 1 and not on_mobile and mouse.isDown(2))
-        or (button == 2 and not on_mobile and mouse.isDown(1))
+    if (button == 1 and not is_touch and mouse.isDown(2))
+        or (button == 2 and not is_touch and mouse.isDown(1))
         or (self.state[index] == Cell.uncover --and board.grid[index] > 0
-            and (button == 2 or on_mobile) and state ~= Cell.flag)
+            and (button == 2 or is_touch) and state ~= Cell.flag)
         or self.chording
     then
         self.chording = true
