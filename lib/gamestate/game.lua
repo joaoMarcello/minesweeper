@@ -93,7 +93,7 @@ local data = {}
 
 local mouse = love.mouse
 local lgx = love.graphics
-local on_mobile = _G.TARGET == "Android"
+local on_mobile = _G.TARGET == "Android" or _G.TARGET == "iOS"
 local controller = JM.ControllerManager.P1
 local imgs
 
@@ -175,16 +175,16 @@ data.change_orientation = function(self, orientation)
         )
 
         local tw = 9
-        local th = 15
+        local th = 16
 
         local w = tw * tile
         local sc = (State.screen_w - 8) / w
         local h = th * tile
         local x = (State.screen_w - w) / 2
-        local y = tile * 3
+        local y = tile * 2
         cam_game:set_viewport(
             4,
-            tile * 3,
+            y,
             w * sc,
             h * sc
         )
@@ -206,8 +206,8 @@ data.change_orientation = function(self, orientation)
         end
 
         if data.timer then
-            data.timer.x = cam_gui.viewport_w - 64
-            data.timer.y = 16
+            data.timer.x = cam_gui.viewport_w - (13 * 6) - 6 - 4 --- 64 - 16 - 8
+            data.timer.y = 2
         end
 
         if data.bt_click then
@@ -274,12 +274,29 @@ function data:load_game()
     end
 end
 
+---@type JM.Font.Font
+local font_panel
+
 local function load()
     Timer:load()
     Board:load()
     imgs = imgs or {
         ["button_main"] = love.graphics.newImage("data/img/main_button.png"),
     }
+
+    local glyphs = "1234567890-"
+
+    font_panel = JM.FontGenerator:new {
+        name = "panel",
+        font_size = 24,
+        dir = "data/img/font_panel.png",
+        glyphs = glyphs,
+        min_filter = "linear",
+        max_filter = "nearest",
+        word_space = 3,
+    }
+    font_panel:set_color(Utils:get_rgba())
+    font_panel:set_font_size(font_panel.__ref_height)
 end
 
 local function finish()
@@ -317,6 +334,7 @@ local function init(args)
     data.click_state = ClickState.reveal
     data.direction_x = 0
     data.direction_y = 0
+    data.allow_move_board = true
     mouse.setVisible(true)
 
     State:set_color(0.5, 0.5, 0.5, 1)
@@ -337,6 +355,7 @@ local function init(args)
 
     data.timer = Timer:new(game_data and game_data.time)
     data.timer:lock()
+    data.timer:set_font(font_panel)
     State:add_object(data.timer)
 
     data.container = JM.GUI.Container:new {
@@ -350,7 +369,7 @@ local function init(args)
         x = 20, y = 20, w = 32, h = 32, on_focus = true,
         text = "click",
     }
-    data.bt_click:on_event("mouse_pressed", function()
+    data.bt_click:on_event("mousepressed", function()
         data.click_state = data.click_state == ClickState.reveal and ClickState.flag or ClickState.reveal
     end)
 
@@ -358,13 +377,13 @@ local function init(args)
         x = 0, y = 0, w = tile * 3, h = tile * 3, on_focus = true, text = "main"
     }
 
-    data.bt_main:on_event("mouse_pressed", function()
+    data.bt_main:on_event("mousepressed", function()
         if data.continue > 0 and data.gamestate == GameStates.dead then
             data.board:revive()
             data:set_state(GameStates.resume)
         else
-            local save = data:load_game()
-            State:init(save)
+            -- local save = data:load_game()
+            State:init()
         end
     end)
 
@@ -375,20 +394,20 @@ local function init(args)
     end
 
     data.bt_zoom_in = JM.GUI.Button:new {
-        x = 100, y = 64, w = 8, h = 8, on_focus = true, text = "zi"
+        x = 100, y = 64, w = 16, h = 16, on_focus = true, text = "zi"
     }
 
-    data.bt_zoom_in:on_event("mouse_pressed", function()
+    data.bt_zoom_in:on_event("mousepressed", function()
         cam_game:set_focus(cam_game.viewport_w * 0.5, cam_game.viewport_h * 0.5)
         ---@diagnostic disable-next-line: undefined-field
         State:wheelmoved(0, 1, true)
     end)
 
     data.bt_zoom_out = JM.GUI.Button:new {
-        x = 100, y = 64, w = 8, h = 8, on_focus = true, text = "zo"
+        x = 100, y = 64, w = 16, h = 16, on_focus = true, text = "zo"
     }
 
-    data.bt_zoom_out:on_event("mouse_pressed", function()
+    data.bt_zoom_out:on_event("mousepressed", function()
         cam_game:set_focus(cam_game.viewport_w * 0.5, cam_game.viewport_h * 0.5)
         ---@diagnostic disable-next-line: undefined-field
         State:wheelmoved(0, -1, true)
@@ -484,7 +503,7 @@ local function mousepressed(x, y, button, istouch, presses, mx, my, __is_touch__
         py = my or py
     end
 
-    data.container:mouse_pressed(px, py, button, istouch, presses)
+    data.container:mousepressed(px, py, button, istouch, presses)
 
     if istouch or data.gamestate ~= GameStates.playing then
         return
@@ -502,7 +521,7 @@ local function mousepressed(x, y, button, istouch, presses, mx, my, __is_touch__
     data.pressing = true
     if not is_inside_board or button > 2 then return end
 
-    board:mousepressed(x, y, button)
+    board:mousepressed(x, y, button, __is_touch__)
 end
 
 local function mousereleased(x, y, button, istouch, presses, mx, my, __is_touch__)
@@ -513,7 +532,7 @@ local function mousereleased(x, y, button, istouch, presses, mx, my, __is_touch_
         px = mx or px
         py = my or py
     end
-    data.container:mouse_released(px, py, button, istouch, presses)
+    data.container:mousereleased(px, py, button, istouch, presses)
 
     if istouch or data.gamestate ~= GameStates.playing then return end
 
@@ -581,6 +600,7 @@ local function mousemoved(x, y, dx, dy, istouch, mouseIsDown1, mouseIsDown2, mx,
 
 
     if ((dx and math.abs(dx) > 1) or (dy and math.abs(dy) > 1))
+        and data.allow_move_board
         and (mouseIsDown1 or (not __is_touch__ and mouse.isDown(1)))
         and (not board.chording or __is_touch__)
         and cam:point_is_on_view(mx, my)
@@ -657,6 +677,9 @@ local function wheelmoved(x, y, force_zoom)
             zoom = cam.scale - speed
         end
 
+        if not data.allow_move_board then
+            cam_game:set_focus(cam_game.viewport_w / 2, cam_game.viewport_h / 2)
+        end
         cam:set_zoom(zoom)
     end
 
@@ -664,9 +687,9 @@ local function wheelmoved(x, y, force_zoom)
     local board = data.board
 
     if cam.scale < minscale then
-        board.tilemap:change_tileset(board.low_tileset)
+        board.tilemap:change_img(board.low_tileset_img)
     else
-        board.tilemap:change_tileset(board.full_tileset)
+        board.tilemap:change_img(board.full_tileset_img)
     end
 end
 
@@ -1090,7 +1113,8 @@ local layer_gui = {
         local board = data.board
 
         if data.orientation == "landscape" then
-            font:print(string.format("Mines: %d", board.mines - board.flags), cam_game.viewport_w + 20, 32)
+            font_panel:print(string.format("%02d", board.mines - board.flags), cam_game.viewport_w + 20,
+                16 + font_panel.__ref_height + 4)
 
             local r = data.gamestate == GameStates.playing and "playing"
             r = not r and data.gamestate == GameStates.dead and "dead" or r
@@ -1106,7 +1130,7 @@ local layer_gui = {
             font:print(tostring(data.continue), cam_game.viewport_w + 20, 64 + 32)
             ---
         else
-            font:print(string.format("Mines: %d", board.mines - board.flags), 20, 16)
+            font_panel:print(string.format("%02d", board.mines - board.flags), 4, 2)
 
             local r = data.gamestate == GameStates.playing and "playing"
             r = not r and data.gamestate == GameStates.dead and "dead" or r
@@ -1132,6 +1156,10 @@ local layer_buttons = {
 
         local font = JM.Font.current
 
+        -- font_panel:push()
+        -- font_panel:set_color(Utils:get_rgba())
+        -- font_panel:print("123-", 32, 32)
+        -- font_panel:pop()
         -- if data.save_table then
         --     font:print(tostring(data.save_table.width), 64, 64)
         -- end
