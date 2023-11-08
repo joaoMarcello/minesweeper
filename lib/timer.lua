@@ -39,7 +39,24 @@ function Timer:init()
 end
 
 function Timer:load()
+    -- local glyphs = "1234567890-"
 
+    -- local font_panel = JM.FontGenerator:new {
+    --     name = "panel",
+    --     font_size = 24,
+    --     dir = "data/img/font_panel.png",
+    --     glyphs = glyphs,
+    --     min_filter = "linear",
+    --     max_filter = "nearest",
+    --     word_space = 3,
+    -- }
+    -- font_panel:set_font_size(font_panel.__ref_height)
+    -- font_panel:set_color { 1, 1, 1, 1 }
+    -- font = font_panel
+end
+
+function Timer:set_font(new_font)
+    font = new_font
 end
 
 function Timer:finish()
@@ -145,8 +162,8 @@ function Timer:my_draw()
     local min, sec, dec = self:get_time2()
 
     font:push()
-    font:set_color(color_yellow)
-    local sm = string_format("%02d:%02d:%02d", min, sec, dec)
+    -- font:set_color(color_yellow)
+    local sm = string_format("%02d %02d %02d", min, sec, dec)
     font:print(sm, self.x, self.y)
     font:pop()
 end
