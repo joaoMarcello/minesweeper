@@ -181,7 +181,7 @@ data.change_orientation = function(self, orientation)
         local sc = (State.screen_w - 8) / w
         local h = th * tile
         local x = (State.screen_w - w) / 2
-        local y = tile * 2
+        local y = tile * 2.5
         cam_game:set_viewport(
             4,
             y,
@@ -206,8 +206,8 @@ data.change_orientation = function(self, orientation)
         end
 
         if data.timer then
-            data.timer.x = cam_gui.viewport_w - (13 * 6) - 6 - 4 --- 64 - 16 - 8
-            data.timer.y = 2
+            data.timer.x = cam_gui.viewport_w - (11 * 6) - 6 - 4 --- 64 - 16 - 8
+            data.timer.y = 16
         end
 
         if data.bt_click then
@@ -277,6 +277,9 @@ end
 ---@type JM.Font.Font
 local font_panel
 
+---@type JM.Font.Font
+local font_panel2
+
 local function load()
     Timer:load()
     Board:load()
@@ -284,9 +287,9 @@ local function load()
         ["button_main"] = love.graphics.newImage("data/img/main_button.png"),
     }
 
-    local glyphs = "1234567890-"
+    local glyphs = "1234567890-:null:"
 
-    font_panel = JM.FontGenerator:new {
+    font_panel = font_panel or JM.FontGenerator:new {
         name = "panel",
         font_size = 24,
         dir = "data/img/font_panel.png",
@@ -297,6 +300,18 @@ local function load()
     }
     font_panel:set_color(Utils:get_rgba())
     font_panel:set_font_size(font_panel.__ref_height)
+
+    font_panel2 = font_panel2 or JM.FontGenerator:new {
+        name = "panel2",
+        font_size = 24,
+        dir = "data/img/font_panel_14.png",
+        glyphs = glyphs,
+        min_filter = "linear",
+        max_filter = "nearest",
+        word_space = 3,
+    }
+    font_panel2:set_color(Utils:get_rgba())
+    font_panel2:set_font_size(font_panel2.__ref_height)
 end
 
 local function finish()
@@ -355,7 +370,7 @@ local function init(args)
 
     data.timer = Timer:new(game_data and game_data.time)
     data.timer:lock()
-    data.timer:set_font(font_panel)
+    data.timer:set_font(font_panel2)
     State:add_object(data.timer)
 
     data.container = JM.GUI.Container:new {
@@ -1128,15 +1143,16 @@ local layer_gui = {
             font:print(tostring(r), cam_game.viewport_w + 20, 64 + 16)
 
             font:print(tostring(data.continue), cam_game.viewport_w + 20, 64 + 32)
+
             ---
         else
-            font_panel:print(string.format("%02d", board.mines - board.flags), 4, 2)
+            font_panel2:print(string.format("%02d", board.mines - board.flags), 4, data.timer.y)
 
             local r = data.gamestate == GameStates.playing and "playing"
             r = not r and data.gamestate == GameStates.dead and "dead" or r
             r = not r and data.gamestate == GameStates.victory and "victory" or r
             r = not r and "Error" or r
-            font:print(tostring(r), 20, cam_game.viewport_y + cam_game.viewport_h)
+            font:printf(tostring(r), 20, cam_game.viewport_y + cam_game.viewport_h)
 
             r = data.click_state == ClickState.reveal and "reveal"
             r = not r and data.click_state == ClickState.flag and "flag" or r
@@ -1155,6 +1171,8 @@ local layer_buttons = {
         data.container:draw(cam)
 
         local font = JM.Font.current
+
+        font_panel2:print("123:null:", 100, 100)
 
         -- font_panel:push()
         -- font_panel:set_color(Utils:get_rgba())
