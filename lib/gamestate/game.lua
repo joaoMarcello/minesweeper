@@ -5,6 +5,12 @@ local Utils = JM.Utils
 local TileSet = JM.TileSet
 local Loader = JM.Ldr
 
+do
+    local Word = require "jm-love2d-package.modules.font.Word"
+    ---@diagnostic disable: inject-field
+    Word.eff_wave_range = 1
+end
+
 local Timer = require "lib.timer"
 local Board = require "lib.board"
 
@@ -283,6 +289,9 @@ local font_panel2
 ---@type JM.Font.Font
 local pixel_font
 
+---@type JM.Font.Font
+local font_mini
+
 local function load()
     Timer:load()
     Board:load()
@@ -320,7 +329,7 @@ local function load()
         name            = "pixel",
         font_size       = 24,
         dir             = "/data/img/my_pixel_font-Sheet.png",
-        glyphs          = [[AÀÁÃÄÂaàáãäâBbCcÇçDdEÈÉÊËeèéêëFfGgHhIÌÍÎÏiìíîïJjKkLlMmNnOÒÓÕÔÖoòóõôöPpQqRrSsTtUÙÚÛÜuùúûüVvWwXxYyZz0123456789!?@#$%^&*()<>{}:[]:mult::div::cpy:+-_=¬'"¹²³°ºª\/.:dots:;:dash:|¢£:blk_bar::arw_fr::arw_bk::arw_up::arw_dw::bt_a::bt_b::bt_x::bt_y::star::heart::circle:]],
+        glyphs          = [[AÀÁÃÄÂaàáãäâBbCcÇçDdEÈÉÊËeèéêëFfGgHhIÌÍÎÏiìíîïJjKkLlMmNnOÒÓÕÔÖoòóõôöPpQqRrSsTtUÙÚÛÜuùúûüVvWwXxYyZz0123456789!?@#$%^&*()<>{}:[]:mult::div::cpy:+-_=¬'"¹²³°ºª\/.:dots:;,:dash:|¢£:blk_bar::arw_fr::arw_bk::arw_up::arw_dw::bt_a::bt_b::bt_x::bt_y::star::heart::circle:]],
         min_filter      = "linear",
         max_filter      = "nearest",
         character_space = 0,
@@ -329,6 +338,19 @@ local function load()
     }
     pixel_font:set_color(Utils:get_rgba())
     pixel_font:set_font_size(pixel_font.__ref_height)
+
+    font_mini = font_mini or JM.FontGenerator:new {
+        name = "pixel mini",
+        dir = "/data/img/pixel_font_mini-Sheet.png",
+        glyphs = [[abcdefghijklmnopqrstuvwxyz0123456789-_.:dots::+:square::blk_bar::heart:()[]{}:arw_fr::arw_bk::arw_up::arw_dw::dash:|,;!?]],
+        min_filter = 'linear',
+        max_filter = 'nearest',
+        character_space = 0,
+        word_space = 4,
+        line_space = 3,
+    }
+    font_mini:set_color(Utils:get_rgba())
+    font_mini:set_font_size(font_mini.__ref_height)
 end
 
 local function finish()
@@ -1196,8 +1218,13 @@ local layer_buttons = {
 
         pixel_font:printx(
             "Casa Çasaç AA <effect=spooky>DafFa</effect> GgfFjiJHhiI PpajiqapQ Wwyq 0123456789Zz\n O <effect=ghost>Rato</effect> roeu a :mult: roupa do rei de (Roma)^1*3\n :div:astha\n :cpy:João Moreira:¬ +-@TMJ_por_JM \n (^-^) ¬¬ 'oi'" ..
-            ' - " 2¹²³2C° 1º\\/. tentei:dots: tempo;\n :dash: Oi! (|a) laranja ¢q£ªº¬ âmbar ÂMBAR Ëkë Î Ï ï<effect=flickering, speed=0.8>:blk_bar:</effect>\n Ô Ö õôö ÛÜ úùûü\n <effect=flickering>:arw_fr:</effect no-space>Teste:arw_bk: <effect=wave, speed=2><color,0,0,0,1>Press :bt_a: to <color>charge</color no-space>.</effect> :bt_b: too works :bt_x: :bt_y: :: :star: :heart: :circle:Bomb',
+            ' - " 2¹²³2C° 1º\\/. tentei:dots: tempo;\n :dash: Oi! (|a) laranja ¢q£ªº¬ âmbar ÂMBAR Ëkë Î Ï ï<effect=flickering, speed=0.8>:blk_bar:</effect>\n Ô Ö õôö ÛÜ úùûü\n <effect=flickering>:arw_fr:</effect no-space>Teste:arw_bk: <effect=wave, speed=2><color,0,0,0,1>Press :bt_a: to <color>charge</color no-space>.</effect> :bt_b: too works :bt_x: :bt_y: :: :star: :heart: :circle:Bomb,;hein?',
             2, 32, nil, "left")
+
+        font_mini:print(
+            ":square:testando, ai; !?-- 012345+6789-_ aff:dots: tem ::blk_bar: cora:heart:[(as)]{}\n:arw_fr:oi:arw_bk: :arw_up: :arw_dw: |:dash:espera",
+            10,
+            200)
         -- font_panel:push()
         -- font_panel:set_color(Utils:get_rgba())
         -- font_panel:print("123-", 32, 32)
