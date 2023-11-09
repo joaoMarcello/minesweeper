@@ -280,6 +280,9 @@ local font_panel
 ---@type JM.Font.Font
 local font_panel2
 
+---@type JM.Font.Font
+local pixel_font
+
 local function load()
     Timer:load()
     Board:load()
@@ -312,6 +315,19 @@ local function load()
     }
     font_panel2:set_color(Utils:get_rgba())
     font_panel2:set_font_size(font_panel2.__ref_height)
+
+    pixel_font = pixel_font or JM.FontGenerator:new {
+        name            = "pixel",
+        font_size       = 24,
+        dir             = "/data/img/my_pixel_font-Sheet.png",
+        glyphs          = [[AaBbCcÇçDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789!?@#$%^&*()<>{}:[]:mult::div::cpy:+-_=¬'"¹²³°º\/.:dots:;:dash:]],
+        min_filter      = "linear",
+        max_filter      = "nearest",
+        character_space = 0,
+        word_space      = 5,
+    }
+    pixel_font:set_color(Utils:get_rgba())
+    pixel_font:set_font_size(pixel_font.__ref_height)
 end
 
 local function finish()
@@ -1128,8 +1144,11 @@ local layer_gui = {
         local board = data.board
 
         if data.orientation == "landscape" then
-            font_panel:print(string.format("%02d", board.mines - board.flags), cam_game.viewport_w + 20,
-                16 + font_panel.__ref_height + 4)
+            local flags = board.mines - board.flags
+            font_panel:print((flags > -10 and ":null:" or "") .. string.format("%02d", flags),
+                cam_game.viewport_w + 20,
+                16 + font_panel.__ref_height + 4
+            )
 
             local r = data.gamestate == GameStates.playing and "playing"
             r = not r and data.gamestate == GameStates.dead and "dead" or r
@@ -1172,8 +1191,12 @@ local layer_buttons = {
 
         local font = JM.Font.current
 
-        font_panel2:print("123:null:", 100, 100)
+        -- font_panel2:print("123:null:0912-00", 100, 100)
 
+        pixel_font:printx(
+            "Casa Çasaç AA <effect=spooky>DafFa</effect> GgfFjiJHhiI PpajiqapQ Wwyq 0123456789Zz\n O Rato roeu a :mult: roupa do rei de (Roma)^1*3\n :div:astha\n :cpy:Joao Moreira mama:¬ +-@TMJ_por_JM \n (^-^) ¬¬ 'oi'" ..
+            ' - " 2¹²³2C° 1º\\/. tentei:dots: tempo;\n :dash: Oi!',
+            32, 32)
         -- font_panel:push()
         -- font_panel:set_color(Utils:get_rgba())
         -- font_panel:print("123-", 32, 32)
