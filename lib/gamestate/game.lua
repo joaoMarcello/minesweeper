@@ -1222,7 +1222,7 @@ local layer_buttons = {
         -- font_panel2:print("123:null:0912-00", 100, 100)
 
         pixel_font:printx(
-            "Casa, Çasaç AA <effect=spooky>DafFa</effect> GgfFjiJHhiI PpajiqapQ Wwyq 0123456789Zz\n O <effect=ghost>Rato</effect> roeu a :mult: roupa do rei de (Roma)^1*3\n :div:astha\n :cpy:João Moreira:¬ +-@TMJ_por_JM \n (^-^) ¬¬ 'oi'" ..
+            "Casa, Çasaç AA <effect=spooky>DafFa</effect> GgfFjiJHhiI PpajiqapQ Wwyq 0123456789Zz\n O <effect=ghost>Rato</effect> roeu a :mult: roupa do rei de (Roma)^1*3\n :arw2_fr::div:astha:arw2_bk: :enne:ao ?oi:spa_inter:\n :cpy:João Moreira:¬ +-@TMJ_por_JM \n (^-^) ¬¬ 'oi'" ..
             ' - " 2¹²³2C° 1º\\/. tentei:dots: tempo;\n :dash: Oi! (|a) laranja ¢q£ªº¬ âmbar ÂMBAR Ëkë Î Ï ï<effect=flickering, speed=0.8>:blk_bar:</effect>\n Ô Ö õôö ÛÜ úùûü\n <effect=flickering>:arw_fr:</effect no-space>Teste:arw_bk: <effect=wave, speed=2><color,0,0,0,1>Press :bt_a: to <color>charge</color no-space>.</effect> :bt_b: too works :bt_x: :bt_y: :: :star: :heart: :circle:Bomb,;hein?',
             2, 32, nil, "left")
 
@@ -1231,6 +1231,10 @@ local layer_buttons = {
             '"tchau" :div: %\n# 1.99¢ @turmadamonicajovem',
             10,
             160)
+
+        local utf8 = require 'utf8'
+        -- font:print(utf8.char(0x41), 0, 0)
+        love.graphics.print(utf8.char(0xA9), 0, 0)
         -- font_panel:push()
         -- font_panel:set_color(Utils:get_rgba())
         -- font_panel:print("123-", 32, 32)
