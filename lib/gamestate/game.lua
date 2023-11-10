@@ -299,58 +299,63 @@ local function load()
         ["button_main"] = love.graphics.newImage("data/img/main_button.png"),
     }
 
-    local glyphs = "1234567890-:null:"
+    -- local glyphs = "1234567890-:null:"
 
-    font_panel = font_panel or JM.FontGenerator:new {
-        name = "panel",
-        font_size = 24,
-        dir = "data/img/font_panel.png",
-        glyphs = glyphs,
-        min_filter = "linear",
-        max_filter = "nearest",
-        word_space = 3,
-    }
-    font_panel:set_color(Utils:get_rgba())
-    font_panel:set_font_size(font_panel.__ref_height)
+    -- font_panel = font_panel or JM.FontGenerator:new {
+    --     name = "panel",
+    --     font_size = 24,
+    --     dir = "data/img/font_panel.png",
+    --     glyphs = glyphs,
+    --     min_filter = "linear",
+    --     max_filter = "nearest",
+    --     word_space = 3,
+    -- }
+    -- font_panel:set_color(Utils:get_rgba())
+    -- font_panel:set_font_size(font_panel.__ref_height)
 
-    font_panel2 = font_panel2 or JM.FontGenerator:new {
-        name = "panel2",
-        font_size = 24,
-        dir = "data/img/font_panel_14.png",
-        glyphs = glyphs,
-        min_filter = "linear",
-        max_filter = "nearest",
-        word_space = 3,
-    }
-    font_panel2:set_color(Utils:get_rgba())
-    font_panel2:set_font_size(font_panel2.__ref_height)
+    -- font_panel2 = font_panel2 or JM.FontGenerator:new {
+    --     name = "panel2",
+    --     font_size = 24,
+    --     dir = "data/img/font_panel_14.png",
+    --     glyphs = glyphs,
+    --     min_filter = "linear",
+    --     max_filter = "nearest",
+    --     word_space = 3,
+    -- }
+    -- font_panel2:set_color(Utils:get_rgba())
+    -- font_panel2:set_font_size(font_panel2.__ref_height)
 
-    pixel_font = pixel_font or JM.FontGenerator:new {
-        name            = "pixel",
-        font_size       = 24,
-        dir             = "/data/img/my_pixel_font-Sheet.png",
-        glyphs          = [[AÀÁÃÄÂaàáãäâBbCcÇçDdEÈÉÊËeèéêëFfGgHhIÌÍÎÏiìíîïJjKkLlMmNnOÒÓÕÔÖoòóõôöPpQqRrSsTtUÙÚÛÜuùúûüVvWwXxYyZz0123456789!?@#$%^&*()<>{}:[]:mult::div::cpy:+-_=¬'"¹²³°ºª\/.:dots:;,:dash:|¢£:blk_bar::arw_fr::arw_bk::arw_up::arw_dw::bt_a::bt_b::bt_x::bt_y::star::heart::circle:]],
-        min_filter      = "linear",
-        max_filter      = "nearest",
-        character_space = 0,
-        word_space      = 5,
-        line_space      = 4,
-    }
-    pixel_font:set_color(Utils:get_rgba())
-    pixel_font:set_font_size(pixel_font.__ref_height)
+    font_panel = JM:get_font("circuit21")
+    font_panel2 = JM:get_font("circuit17")
+    pixel_font = JM:get_font("pix8")
+    font_mini = JM:get_font("pix5")
 
-    font_mini = font_mini or JM.FontGenerator:new {
-        name = "pixel mini",
-        dir = "/data/img/pixel_font_mini-Sheet.png",
-        glyphs = [[abcdefghijklmnopqrstuvwxyz0123456789-_.:dots::+:square::blk_bar::heart:()[]{}:arw_fr::arw_bk::arw_up::arw_dw::dash:|,;!?]],
-        min_filter = 'linear',
-        max_filter = 'nearest',
-        character_space = 0,
-        word_space = 4,
-        line_space = 3,
-    }
-    font_mini:set_color(Utils:get_rgba())
-    font_mini:set_font_size(font_mini.__ref_height)
+    -- pixel_font = pixel_font or JM.FontGenerator:new {
+    --     name            = "pixel",
+    --     font_size       = 24,
+    --     dir             = "/data/img/my_pixel_font-Sheet.png",
+    --     glyphs          = [[AÀÁÃÄÂaàáãäâBbCcÇçDdEÈÉÊËeèéêëFfGgHhIÌÍÎÏiìíîïJjKkLlMmNnOÒÓÕÔÖoòóõôöPpQqRrSsTtUÙÚÛÜuùúûüVvWwXxYyZz0123456789!?@#$%^&*()<>{}:[]:mult::div::cpy:+-_=¬'"¹²³°ºª\/.:dots:;,:dash:|¢£:blk_bar::arw_fr::arw_bk::arw_up::arw_dw::bt_a::bt_b::bt_x::bt_y::star::heart::circle:]],
+    --     min_filter      = "linear",
+    --     max_filter      = "nearest",
+    --     character_space = 0,
+    --     word_space      = 5,
+    --     line_space      = 4,
+    -- }
+    -- pixel_font:set_color(Utils:get_rgba())
+    -- pixel_font:set_font_size(pixel_font.__ref_height)
+
+    -- font_mini = font_mini or JM.FontGenerator:new {
+    --     name = "pixel mini",
+    --     dir = "/data/img/pixel_font_mini-Sheet.png",
+    --     glyphs = [[abcdefghijklmnopqrstuvwxyz0123456789-_.:dots::+:square::blk_bar::heart:()[]{}:arw_fr::arw_bk::arw_up::arw_dw::dash:|,;!?]],
+    --     min_filter = 'linear',
+    --     max_filter = 'nearest',
+    --     character_space = 0,
+    --     word_space = 4,
+    --     line_space = 3,
+    -- }
+    -- font_mini:set_color(Utils:get_rgba())
+    -- font_mini:set_font_size(font_mini.__ref_height)
 end
 
 local function finish()
@@ -1217,14 +1222,15 @@ local layer_buttons = {
         -- font_panel2:print("123:null:0912-00", 100, 100)
 
         pixel_font:printx(
-            "Casa Çasaç AA <effect=spooky>DafFa</effect> GgfFjiJHhiI PpajiqapQ Wwyq 0123456789Zz\n O <effect=ghost>Rato</effect> roeu a :mult: roupa do rei de (Roma)^1*3\n :div:astha\n :cpy:João Moreira:¬ +-@TMJ_por_JM \n (^-^) ¬¬ 'oi'" ..
+            "Casa, Çasaç AA <effect=spooky>DafFa</effect> GgfFjiJHhiI PpajiqapQ Wwyq 0123456789Zz\n O <effect=ghost>Rato</effect> roeu a :mult: roupa do rei de (Roma)^1*3\n :div:astha\n :cpy:João Moreira:¬ +-@TMJ_por_JM \n (^-^) ¬¬ 'oi'" ..
             ' - " 2¹²³2C° 1º\\/. tentei:dots: tempo;\n :dash: Oi! (|a) laranja ¢q£ªº¬ âmbar ÂMBAR Ëkë Î Ï ï<effect=flickering, speed=0.8>:blk_bar:</effect>\n Ô Ö õôö ÛÜ úùûü\n <effect=flickering>:arw_fr:</effect no-space>Teste:arw_bk: <effect=wave, speed=2><color,0,0,0,1>Press :bt_a: to <color>charge</color no-space>.</effect> :bt_b: too works :bt_x: :bt_y: :: :star: :heart: :circle:Bomb,;hein?',
             2, 32, nil, "left")
 
         font_mini:print(
-            ":square:testando, ai; !?-- 012345+6789-_ aff:dots: tem ::blk_bar: cora:heart:[(as)]{}\n:arw_fr:oi:arw_bk: :arw_up: :arw_dw: |:dash:espera",
+            ":square: :arw2_fr:testando,:arw2_bk: ai; !?-- 012345+6789-_ aff:dots: tem ::blk_bar: cora:heart:[(as)]{}\n:arw_fr:oi:arw_bk: :arw_up: :arw_dw: |:dash:espera\\/*~^áàâaäã onça èsmé warnïngí lövó sabão û ümù asas 1º 2°¬¬'oi' " ..
+            '"tchau" :div: %\n# 1.99¢ @turmadamonicajovem',
             10,
-            200)
+            160)
         -- font_panel:push()
         -- font_panel:set_color(Utils:get_rgba())
         -- font_panel:print("123-", 32, 32)
