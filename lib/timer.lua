@@ -1,4 +1,4 @@
-local Font = _G.JM_Font
+-- local Font = _G.JM_Font
 local GC = JM.GameObject
 
 local color_white = _G.JM_Utils:get_rgba(1, 1, 1, 1)
@@ -30,7 +30,7 @@ function Timer:__constructor__(time_in_sec)
     self.__lock = false
 
     if not font then
-        font = JM.Font.current
+        font = JM:get_font()
     end
 end
 
