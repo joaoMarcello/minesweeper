@@ -31,9 +31,14 @@ function love.load()
     _G.CANVAS_FILTER = "linear"
     _G.TARGET = love.system.getOS()
 
-    JM.Font.current:set_font_size(8)
+    JM:get_font():set_font_size(8)
 
-    local state = require("lib.gamestate.game")
+    do
+        local Word = require "jm-love2d-package.modules.font.Word"
+        ---@diagnostic disable-next-line: inject-field
+        Word.eff_wave_range = 1
+    end
+    local state = require("lib.gamestate.menu")
 
     -- ---@type JM.GameState.Splash
     -- local state = require(JM.SplashScreenPath)
@@ -194,7 +199,7 @@ end
 
 local km = 0
 function love.update(dt)
-    -- km = collectgarbage("count") / 1024.0
+    km = collectgarbage("count") / 1024.0
     JM:update(dt)
     return SceneManager.scene:update(dt)
 end
