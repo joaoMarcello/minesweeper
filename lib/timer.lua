@@ -161,11 +161,9 @@ end
 function Timer:my_draw()
     local min, sec, dec = self:get_time2()
 
-    font:push()
-    -- font:set_color(color_yellow)
-    local sm = string_format("%02d %02d %02d", min, sec, dec)
-    font:print(sm, self.x, self.y)
-    font:pop()
+    local px, py = font:print(string_format("%02d", min), self.x, self.y)
+    px, py = font:print(string_format("%02d", sec), px + 4, py)
+    return font:print(string_format("%02d", dec), px + 4, py)
 end
 
 function Timer:draw()
