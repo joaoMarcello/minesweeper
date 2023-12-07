@@ -794,6 +794,11 @@ function Board:my_draw()
     local cam = self.gamestate:get_camera("cam2")
     self.tilemap:draw(cam)
     self.number_tilemap:draw(cam)
+
+    -- local font = JM:get_font()
+    -- local n = self:count_neighbor_flags(self.cell_x, self.cell_y)
+    -- local mx, my = self.gamestate:get_mouse_position(self.gamestate:get_camera("cam2"))
+    -- font:print(tostring(n), mx, my - 12)
 end
 
 function Board:draw()
