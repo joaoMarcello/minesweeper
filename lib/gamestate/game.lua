@@ -243,6 +243,11 @@ data.change_orientation = function(self, orientation)
         -- end
     end
     data.orientation = orientation
+
+    -- data.tilemap_gui:load_map(function()
+    --     Entry(16 * 5, 16 * 2, 1)
+    --     Entry(16 * 5, 16 * 3, 1)
+    -- end)
 end
 --============================================================================
 
@@ -292,20 +297,11 @@ local pixel_font
 ---@type JM.Font.Font
 local font_mini
 
----@type JM.Font.Font
-local testfont
-
 local function load()
     Timer:load()
     Board:load()
     imgs = imgs or {
         ["button_main"] = love.graphics.newImage("data/img/main_button.png"),
-    }
-
-    testfont = testfont or JM.FontGenerator:new {
-        dir = "/data/img/test_font-Sheet.png",
-        glyphs = "AB",
-        name = "teste",
     }
 
     font_panel = JM:get_font("circuit21")
@@ -323,6 +319,9 @@ local MIN_SCALE_TO_LOW_RES = 0.3
 
 ---@param args GameState.Game.LoadData|nil
 local function init(args)
+    data.tilemap_gui = TileMap:new(generic, "data/img/tilemap_gui.png", 16)
+    -- data.tilemap_gui:insert_tile(100, 100, 1)
+
     data:change_orientation(State.screen_h > State.screen_w and "portrait" or "landscape")
 
     data.world = JM.Physics:newWorld {
@@ -399,6 +398,7 @@ local function init(args)
         else
             -- local save = data:load_game()
             State:init()
+            JM:flush()
         end
     end)
 
@@ -450,7 +450,7 @@ local function keypressed(key)
         cam:toggle_debug()
     end
     if key == 'p' then
-        local cam = cam_gui
+        local cam = cam_buttons
         cam:toggle_grid()
         cam:toggle_world_bounds()
         -- cam:toggle_debug()
@@ -464,6 +464,10 @@ local function keypressed(key)
             State:change_game_screen(398, 224)
             data:change_orientation("landscape")
         end
+    end
+
+    if key == 'q' then
+        JM:flush()
     end
 
     if key == 'i' then
@@ -1069,10 +1073,12 @@ local layer_main = {
 
         -- local px = 0
         -- local py = 0
-        -- for y = 0, data.height - 1 do
-        --     for x = 0, data.width - 1 do
-        --         local index = (y * data.width) + x
-        --         local cell = data.grid[index]
+        -- local font = JM:get_font()
+
+        -- for y = 0, data.board.height - 1 do
+        --     for x = 0, data.board.width - 1 do
+        --         local index = (y * data.board.width) + x
+        --         local cell = data.board.grid[index]
 
         --         if cell == Cell.bomb then
         --             love.graphics.setColor(0, 0, 0, 0.12)
@@ -1119,8 +1125,10 @@ local layer_gui = {
         -- if cam == State.camera then return end
         if cam ~= cam_gui then return end
 
-        love.graphics.setColor(88 / 255, 141 / 255, 190 / 255)
-        love.graphics.rectangle("fill", cam:get_viewport_in_world_coord())
+
+        -- love.graphics.setColor(88 / 255, 141 / 255, 190 / 255)
+        -- love.graphics.rectangle("fill", cam:get_viewport_in_world_coord())
+        data.tilemap_gui:draw(cam)
 
         local font = JM:get_font()
 
@@ -1138,11 +1146,11 @@ local layer_gui = {
             r = not r and data.gamestate == GameStates.victory and "victory" or r
             r = not r and "Error" or r
 
-            font:print(tostring(r) .. "<bold>playing</bold>", cam_game.viewport_w + 20, 64)
+            font:printf(tostring(r) .. "<bold>playing</bold>", cam_game.viewport_w + 20, 70)
 
             r = data.click_state == ClickState.reveal and "reveal"
             r = not r and data.click_state == ClickState.flag and "flag" or r
-            font:print(tostring(r), cam_game.viewport_w + 20, 64 + 16)
+            font:printf(tostring(r), cam_game.viewport_w + 20, 64 + 16)
 
             font:print(tostring(data.continue), cam_game.viewport_w + 20, 64 + 32)
 
@@ -1172,26 +1180,33 @@ local layer_buttons = {
         if cam ~= cam_buttons then return end
         data.container:draw(cam)
 
+        local font = JM:get_font()
+        -- font:push()
+        -- font:printf("Leaderboard é sempre\nassim Victorious", 0, 32, 16 * 4, "right")
+        -- font:set_font_size(17)
+        -- font:printf("Leaderboard é sempre\nassim Victorious", 0, 64, 16 * 4, "right")
+        -- font:pop()
+
         -- font_panel2:print("123:null:0912-00", 100, 100)
 
-        pixel_font:push()
-        pixel_font:printx(
-            "<effect=wave><color, 0, 0,0 >Casa</effect no-space>, Çasaç AA <>DafyFa</effect> GgfFjiJHhiI PpajiqapQ Wwyq 0123456789Zz\n O <effect=ghost>Rato</effect> roeu a :mult: roupa do rei de (Roma)^1*3 press :bt_r: or :bt_l:\n :arw2_fr::div:astha:arw2_bk: :enne_up::enne:ao ?oi:spa_inter: nidoran:female: :diamond:kanghaskhan:male: :check:opt1\n :cpy:João Moreira:¬ +-@TMJ_por_JM Digite:_:line::line::line::line::line::line: :arw_head_fr:Costa :arw_head_bk: :db_comma_init:Teste:db_comma_end: :comma_init:Maria:comma_end: \n (^-^) ¬¬ 'oi'" ..
-            ' - " 2¹²³2C° 1º\\/. tentei:dots: tempo;\n :dash: Oi! (|a) laranja ¢q£ªº¬ âmbar ÂMBAR Ëkë Î Ï ï<effect=flickering, speed=0.8>:blk_bar:</effect>\n Ô Ö õôö ÛÜ úùûü -- \u{A9} \u{d1} \u{f1} \u{2715}\n <effect=flickering>:arw_fr:</effect no-space>Teste:arw_bk: <effect=wave, speed=2><color,0,0,0,1>Press :bt_a: to <color>charge</color no-space>.</effect> :bt_b: too works :bt_x: :bt_y: :: :star: :heart: :circle:Bomb,;hein? --',
-            2, 32, nil, "left")
+        -- pixel_font:push()
+        -- pixel_font:printx(
+        --     "<effect=wave><color, 0, 0,0 >Casa</effect no-space>, Çasaç AA <>DafyFa</effect> GgfFjiJHhiI PpajiqapQ Wwyq 0123456789Zz\n O <effect=ghost>Rato</effect> roeu a :mult: roupa do rei de (Roma)^1*3 press :bt_r: or :bt_l:\n :arw2_fr::div:astha:arw2_bk: :enne_up::enne:ao ?oi:spa_inter: nidoran:female: :diamond:kanghaskhan:male: :check:opt1\n :cpy:João Moreira:¬ +-@TMJ_por_JM Digite:_:line::line::line::line::line::line: :arw_head_fr:Costa :arw_head_bk: :db_comma_init:Teste:db_comma_end: :comma_init:Maria:comma_end: \n (^-^) ¬¬ 'oi'" ..
+        --     ' - " 2¹²³2C° 1º\\/. tentei:dots: tempo;\n :dash: Oi! (|a) laranja ¢q£ªº¬ âmbar ÂMBAR Ëkë Î Ï ï<effect=flickering, speed=0.8>:blk_bar:</effect>\n Ô Ö õôö ÛÜ úùûü -- \u{A9} \u{d1} \u{f1} \u{2715}\n <effect=flickering>:arw_fr:</effect no-space>Teste:arw_bk: <effect=wave, speed=2><color,0,0,0,1>Press :bt_a: to <color>charge</color no-space>.</effect> :bt_b: too works :bt_x: :bt_y: :: :star: :heart: :circle:Bomb,;hein? --',
+        --     2, 32, nil, "left")
 
-        pixel_font:pop()
+        -- pixel_font:pop()
 
 
-        local utf8 = require 'utf8'
+        -- local utf8 = require 'utf8'
 
-        local font = JM:get_font()
+        -- local font = JM:get_font()
 
-        font:printx(
-            "@tmj_por_JM \u{a5} © ¶ æ ¢ <bold>Silvio Santos</bold no-space>, chega de tirar bolas Löve2D" ..
-            utf8.char(169), 0, 170,
-            "left",
-            cam.viewport_w)
+        -- font:printx(
+        --     "@tmj_por_JM \u{a5} © ¶ æ ¢ <bold>Silvio Santos</bold no-space>, chega de tirar bolas Löve2D" ..
+        --     utf8.char(169), 0, 170,
+        --     "left",
+        --     cam.viewport_w)
 
         -- pixel_font:push()
         -- pixel_font:set_color(Utils:get_rgba(0, 0, 0))
@@ -1221,8 +1236,6 @@ local layer_buttons = {
         -- end
 
         -- font:print(utf8.char(0x41), 0, 0)
-        love.graphics.print("playing \u{A9} \u{2715}" .. utf8.char(0xA9), 0, 0)
-        testfont:print("B", 150, 20)
     end
 }
 
